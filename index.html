@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>RESCENE · SACRED TIMELINE 2024 → 2026</title>
+  <meta name="description" content="리센느(RESCENE)의 파묘 영상부터 2026 역주행까지를 우주 공간의 오렌지빛 분기 타임라인으로 표현한 Three.js 시각화" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#04050b" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="RESCENE · SACRED TIMELINE" />
+  <meta property="og:description" content="파묘 → 2024 데뷔 → 2026 거제 야호. 시간선이 갈라지는 지점까지, 리센느의 2년 반을 한 화면에." />
+  <meta property="og:image" content="https://i.ytimg.com/vi/OrCOflk2QmQ/maxresdefault.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <!-- 본문·숫자 모두 IBM Plex 한 집안으로 맞춘다.
+       Plex 는 기술 인터페이스용으로 만들어진 서체라 이 화면의 성격과 맞고,
+       Sans KR 과 Mono 가 같은 뼈대라 한글과 숫자가 한 줄에 섞여도 어긋나 보이지 않는다. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="./css/style.css" />
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <canvas id="scene"></canvas>
+    <!-- CSS2DRenderer 의 라벨 레이어가 여기에 삽입된다 -->
+
+    <div id="bang-flash" class="bang-flash" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <!-- 상단 타이틀 -->
+    <header class="hud hud-top">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-text">
+          <h1>RESCENE <em>리센느</em></h1>
+          <p class="brand-sub">SACRED TIMELINE — <b>2024 활동기 → 2026 역주행</b> <span class="dim">( 2026.03.20 분기 )</span></p>
+        </div>
+      </div>
+      <dl class="brand-meta">
+        <div><dt>MEMBERS</dt><dd id="meta-members">—</dd></div>
+        <div><dt>AGENCY</dt><dd id="meta-agency">—</dd></div>
+        <div><dt>FANDOM</dt><dd id="meta-fandom">—</dd></div>
+      </dl>
+    </header>
+
+    <!-- 범례 -->
+    <div class="hud hud-legend">
+      <span class="lg-title">BRANCH</span>
+      <ul>
+        <li><i style="--c:#ffd9a8"></i>멤버 공개</li>
+        <li><i style="--c:#ffc464"></i>데뷔</li>
+        <li><i style="--c:#ffa53c"></i>음반</li>
+        <li><i style="--c:#ff6a2a"></i>일본</li>
+        <li><i style="--c:#ffcb6b"></i>OST</li>
+        <li><i style="--c:#ffe08a"></i>기록 · 수상</li>
+        <li><i style="--c:#ff8a4a"></i>무대 · 팬</li>
+        <li><i style="--c:#ff9a20"></i>바이럴</li>
+        <li><i style="--c:#ffb87a"></i>작은 무대 · 광고</li>
+        <li><i style="--c:#e8c9a0"></i>파묘 · 발굴</li>
+        <li><i style="--c:#ffc06a"></i>메라디오</li>
+        <li><i style="--c:#ffa876"></i>연수아저씨</li>
+        <li><i style="--c:#ffd28a"></i>대표 · 이사</li>
+        <li><i style="--c:#ffd9a0"></i>광고</li>
+        <li><i style="--c:#ff9f86"></i>이것도 사주마</li>
+        <li><i style="--c:#ff8a4a"></i>굴욕</li>
+        <li class="lg-nexus"><i style="--c:#ffd76e"></i>대박 분기점</li>
+      </ul>
+    </div>
+
+    <!-- 조작 안내 -->
+    <div class="hud hud-help">
+      <span class="lg-title">CONTROL</span>
+      <ul>
+        <li><kbd>가운데 버튼</kbd> 드래그 — 패닝</li>
+        <li><kbd>휠</kbd> — 확대 / 축소</li>
+        <li><kbd>왼쪽 버튼</kbd> 드래그 — 회전</li>
+        <li><kbd>클릭</kbd> — 분기 사건 상세 · <kbd>▶</kbd> 표시는 영상 있음</li>
+        <li><kbd>MV 스크린</kbd> 클릭 — 타이틀곡 MV 재생 · <kbd>M</kbd> 모아보기</li>
+        <li><kbd>멤버</kbd> 또는 <kbd>P</kbd> — 본명 · 별명 · 가족 소개</li>
+        <li><kbd>연도 이름표</kbd> 클릭 — 그 구간 첫머리로 이동</li>
+        <li><kbd>▶ 재생</kbd> / <kbd>Space</kbd> — 데뷔부터 자라나는 연출</li>
+        <li>재생 중 <kbd>클릭</kbd> 다음으로 · <kbd>←</kbd> <kbd>→</kbd> 사건 건너뛰기</li>
+        <li><kbd>파묘</kbd> <kbd>연습생</kbd> <kbd>2024</kbd> <kbd>2025</kbd> <kbd>2026</kbd> — 구간 이동</li>
+        <li><kbd>C</kbd> — 이 안내 접기 · <kbd>B</kbd> — 범례 접기</li>
+        <li><kbd>←</kbd> <kbd>→</kbd> 사건 이동 · <kbd>Esc</kbd> 닫기 · <kbd>0</kbd> 초기화</li>
+      </ul>
+    </div>
+
+    <!-- 조작 안내가 접혀 있을 때 남는 표식 -->
+    <button id="help-hint" class="help-hint" type="button" aria-label="조작 안내 열기"><b>C</b> CONTROL</button>
+    <button id="legend-hint" class="legend-hint" type="button" aria-label="범례 열기"><b>B</b> BRANCH</button>
+
+    <!-- 연도 스크러버 -->
+    <div class="hud hud-scrub">
+      <div class="scrub-months" id="scrub-months"></div>
+      <div class="scrub-track" id="scrub-track"><span class="scrub-line"></span></div>
+    </div>
+
+    <!-- 네비게이션 -->
+    <nav class="hud hud-nav">
+      <button id="btn-prev" type="button" aria-label="이전 사건">◀</button>
+      <button id="btn-era-past" type="button" class="is-dig">파묘</button>
+      <button id="btn-era-trainee" type="button">연습생</button>
+      <button id="btn-era-2024" type="button">2024</button>
+      <button id="btn-era-2025" type="button">2025</button>
+      <button id="btn-era-2026" type="button" class="is-nexus">2026</button>
+      <button id="btn-reset" type="button">전체</button>
+      <button id="btn-play" type="button" class="is-play">▶ 재생</button>
+      <button id="btn-members" type="button" class="is-member" aria-label="멤버 소개">멤버</button>
+      <button id="btn-mv" type="button" class="is-mv" aria-label="타이틀곡 MV 모아보기">▶ MV</button>
+      <button id="btn-next" type="button" aria-label="다음 사건">▶</button>
+    </nav>
+
+    <!-- 상세 패널 -->
+    <aside id="panel" class="panel" aria-hidden="true" aria-live="polite">
+      <button id="panel-close" type="button" aria-label="닫기">✕</button>
+      <span id="p-kind" class="kind-chip"></span>
+      <div id="p-date" class="p-date"></div>
+      <h2 id="p-title"></h2>
+      <div id="p-meta" class="p-meta"></div>
+      <p id="p-desc" class="p-desc"></p>
+      <div id="p-videos" class="p-videos" hidden></div>
+      <div class="p-foot">
+        <span id="p-index" class="p-index"></span>
+        <span class="p-branch">BRANCH DETECTED</span>
+      </div>
+    </aside>
+
+    <!-- 재생 진행 표시 -->
+    <div id="play-hud" class="play-hud" aria-hidden="true">
+      <span class="play-cap">TIMELINE 재생 중</span>
+      <span class="play-track"><i id="play-bar"></i></span>
+      <button id="play-mute" type="button" class="play-mute" aria-label="배경음 켜기/끄기">🔊</button>
+      <button id="play-speed" type="button" class="play-speed" aria-label="재생 속도">1×</button>
+      <span class="play-hint"><kbd>클릭</kbd> 다음으로 · <kbd>Space</kbd> 중단</span>
+    </div>
+
+    <!-- 배경음 = 공식 MV. 유튜브 약관상 플레이어는 200×200 이상으로 보여야 한다.
+         그래서 숨기지 않고 우상단에 작은 모니터로 띄운다. -->
+    <div id="bgm-player" class="bgm-player" aria-hidden="true">
+      <span class="bgmp-cap"><i></i>NOW PLAYING</span>
+      <div id="bgm-frame" class="bgmp-frame"></div>
+      <span class="bgmp-meta"><b>LOVE ATTACK</b><em>미니 1집 《SCENEDROME》</em></span>
+    </div>
+
+    <!-- 재생 화면 — 날짜와 사건을 한 자리에 고정한다 (위치가 안 움직여야 시선이 안 튄다) -->
+    <div id="play-strip" class="play-strip" aria-hidden="true">
+      <div class="ps-rule" aria-hidden="true"></div>
+      <div class="ps-body">
+        <div class="ps-clock">
+          <span id="pclk-year" class="pclk-year">2024</span>
+          <span id="pclk-md" class="pclk-md">
+            <b id="pclk-month">03</b><i>.</i><b id="pclk-day">26</b>
+          </span>
+          <span id="pclk-era" class="pclk-era">활동기</span>
+          <span id="play-date" class="play-date" hidden>—</span>
+        </div>
+        <div id="play-card" class="play-card">
+          <div id="pcard-photo" class="pcard-photo" hidden></div>
+          <div class="pcard-text">
+            <span id="pcard-kind" class="pcard-kind"></span>
+            <span id="pcard-date" class="pcard-date" hidden></span>
+            <h2 id="pcard-title" class="pcard-title"></h2>
+            <span id="pcard-meta" class="pcard-meta"></span>
+            <span class="pcard-next">클릭 — 다음으로 · ← → 건너뛰기</span>
+          </div>
+          <div id="pcard-videos" class="pcard-videos" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 사건 위에 붙는 작은 위치 표식 (CSS2DRenderer 가 옮겨 붙인다) -->
+    <div id="play-cue" class="play-cue" aria-hidden="true"></div>
+
+    <!-- 타이틀곡 MV 갤러리 -->
+    <div id="mvgal" class="mvgal" aria-hidden="true">
+      <div class="mvgal-inner">
+        <header>
+          <span class="lg-title">TITLE TRACK MV</span>
+          <h2>타이틀곡 뮤직비디오 <em>10</em></h2>
+          <p>2024 데뷔부터 2026 역주행까지, 공식 MV 전곡. 클릭하면 바로 재생됩니다.</p>
+          <button id="mvgal-close" type="button" aria-label="닫기">✕</button>
+        </header>
+        <div id="mvgal-list" class="mvgal-list"></div>
+      </div>
+    </div>
+
+    <!-- 멤버 소개 -->
+    <div id="memgal" class="mvgal memgal" aria-hidden="true">
+      <div class="mvgal-inner">
+        <header>
+          <span class="lg-title">MEMBERS</span>
+          <h2>리센느 <em>5</em></h2>
+          <p>본명과 별명, 그리고 콘텐츠에 함께 나오는 가족들. 별명은 대부분 방송 중에 즉석에서 붙었다.</p>
+          <button id="memgal-close" type="button" aria-label="닫기">✕</button>
+        </header>
+        <div id="memgal-list" class="memgal-list"></div>
+      </div>
+    </div>
+
+    <!-- 유튜브 플레이어 -->
+    <div id="player" class="player" aria-hidden="true">
+      <div class="player-inner">
+        <button id="player-close" type="button" aria-label="닫기">✕</button>
+        <div id="player-frame" class="player-frame"></div>
+        <div class="player-meta">
+          <span id="player-title"></span>
+          <a id="player-link" href="#" target="_blank" rel="noopener noreferrer">유튜브에서 열기 ↗</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 로딩 -->
+    <div id="loader">
+      <div class="l-ring" aria-hidden="true"></div>
+      <span>TIMELINE 재구성 중…</span>
+      <small id="l-hint">three.js 모듈을 CDN에서 불러오는 중입니다</small>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+  <script>
+    // 스크립트 오류는 화면에 그대로 띄운다 (콘솔을 못 여는 환경 대비)
+    window.addEventListener('error', function (e) {
+      var h = document.getElementById('l-hint');
+      if (h && !document.body.classList.contains('is-ready')) {
+        h.textContent = 'ERROR: ' + (e.message || e.type) + ' @ ' + (e.filename || '') + ':' + (e.lineno || '');
+      }
+    });
+    // 모듈 로드 실패(오프라인/CDN 차단) 시 안내
+    setTimeout(function () {
+      if (!document.body.classList.contains('is-ready')) {
+        var h = document.getElementById('l-hint');
+        if (h) h.textContent = '로딩이 길어집니다. 인터넷 연결(CDN 접근)과 브라우저 콘솔을 확인해 주세요.';
+      }
+    }, 9000);
+  </script>
+</body>
+</html>

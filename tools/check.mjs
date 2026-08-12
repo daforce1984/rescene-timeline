@@ -1,0 +1,715 @@
+/**
+ * 브라우저 없이 js/main.js 를 통째로 실행해 런타임 오류를 잡는 검사기.
+ *
+ *   node tools/check.mjs
+ *
+ * 실제 three.js 로 씬을 다 만들고, 3D 라벨·HUD 버튼·키보드·포인터 이벤트를
+ * 전부 눌러 본 뒤 렌더 루프를 60프레임 돌린다. GL 컨텍스트가 필요한
+ * WebGLRenderer / EffectComposer / CSS2DRenderer 만 스텁으로 가린다.
+ *
+ * 최초 실행 시 three.module.js 를 CDN 에서 tools/ 아래로 내려받는다.
+ */
+import './dom.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const SRC = process.argv[2] || path.join(HERE, '..', 'js');
+const THREE_FILE = path.join(HERE, 'three.module.js');
+
+if (!fs.existsSync(THREE_FILE)) {
+  const url = 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js';
+  process.stdout.write(`three.module.js 내려받는 중… `);
+  const res = await fetch(url);
+  if (!res.ok) { console.error('실패:', res.status); process.exit(1); }
+  fs.writeFileSync(THREE_FILE, Buffer.from(await res.arrayBuffer()));
+  console.log('완료');
+}
+
+// import 지정자만 하네스 쪽으로 바꿔 임시 복사본을 만든다
+fs.mkdirSync(path.join(HERE, '.tmp'), { recursive: true });
+for (const f of ['data.js', 'main.js']) {
+  let src = fs.readFileSync(path.join(SRC, f), 'utf8');
+  src = src.replace(/from ['"]three['"]/g, `from '${pathToFileURL(path.join(HERE, 'three-shim.mjs')).href}'`);
+  src = src.replace(/from ['"]three\/addons\/[^'"]+['"]/g, `from '${pathToFileURL(path.join(HERE, 'addons.mjs')).href}'`);
+  fs.writeFileSync(path.join(HERE, '.tmp', f), src);
+}
+
+let failed = false;
+process.on('uncaughtException', (e) => { console.error('❌ 런타임 오류:', e.stack); process.exit(1); });
+process.on('unhandledRejection', (e) => { console.error('❌ 미처리 거부:', e); process.exit(1); });
+
+try {
+  await import(pathToFileURL(path.join(HERE, '.tmp', 'main.js')).href);
+} catch (e) {
+  console.error('❌ 모듈 실행 실패:');
+  console.error(e.stack);
+  failed = true;
+}
+if (failed) process.exit(1);
+
+const { byId, handlers, frames, fakeClock, audios } = await import('./dom.mjs');
+const { MVS } = await import(pathToFileURL(path.join(HERE, '.tmp', 'data.js')).href);
+const MVS_NAME = Object.fromEntries(MVS.map((m) => [m.id, m.song]));
+console.log('✅ 모듈 실행 통과 — body.is-ready:', globalThis.document.body.classList.contains('is-ready'),
+            '· DOM id', byId.size, '· 핸들러', handlers.length);
+
+const step = (n = 1, ms = 50) => { for (let i = 0; i < n; i++) { fakeClock.t += ms; const f = frames.shift(); if (f) f(fakeClock.t); } };
+let errs = 0;
+const fire = (label, pred, ev = {}) => {
+  const hit = handlers.filter(pred);
+  if (!hit.length) { console.log(`   ⚠ ${label}: 핸들러 없음`); return; }
+  for (const h of hit) {
+    try { h.fn({ stopPropagation() {}, preventDefault() {}, button: 0, clientX: 10, clientY: 10, target: h.el, ...ev }); }
+    catch (e) { errs++; console.log(`   ❌ ${label}: ${e.message}`); }
+  }
+  try { step(2); } catch (e) { errs++; console.log(`   ❌ ${label} 이후 루프: ${e.message}`); }
+};
+const byIdEl = (id) => byId.get(id);
+const clickOn = (id) => fire(`click #${id}`, (h) => h.el === byIdEl(id) && h.type === 'click');
+
+// 1) 3D 라벨 클릭 — selectEvent / selectRadio / openMv 경로
+const labels = handlers.filter((h) => h.type === 'click' && !byId.has(h.el.id) && h.el !== window && h.el !== document);
+console.log(`\n▸ 3D 라벨/칩 클릭 ${labels.length}개`);
+for (const h of labels) {
+  try { h.fn({ stopPropagation() {}, preventDefault() {}, target: h.el }); step(1); }
+  catch (e) { errs++; console.log(`   ❌ ${e.message}`); }
+}
+
+// 2) HUD 버튼
+console.log('▸ HUD 버튼');
+for (const id of ['btn-mv', 'mvgal-close', 'btn-era-past', 'btn-era-2024', 'btn-era-2025',
+                  'btn-era-2026', 'btn-reset', 'btn-next', 'btn-prev', 'panel-close', 'player-close']) clickOn(id);
+
+// 재생 연출 — 켜고 길게 돌린 뒤 끈다
+console.log('▸ 재생 연출');
+// 배경음은 mp3 가 아니라 공식 MV 다 (저작권 · 유튜브 약관 둘 다 지키는 길)
+const bgm = globalThis.window.__rescene.bgm;
+const ytBgm = /youtube\.com\/watch\?v=/.test(bgm.src || '');
+console.log(`   배경음: ${bgm.src} · loop=${bgm.loop} ${ytBgm && bgm.loop ? '✅ 공식 MV' : '❌'}`);
+if (!ytBgm || !bgm.loop) errs++;
+{
+  // 약관상 플레이어는 200×200 이상으로 보여야 한다 — 숨기면 안 된다
+  const css = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
+  const box = /\.bgmp-frame \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
+  const mob = /@media \(max-width: 900px\)[\s\S]{0,400}?\.bgmp-frame \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
+  const okSize = box && +box[1] >= 200 && +box[2] >= 200 && mob && +mob[1] >= 200 && +mob[2] >= 200;
+  const hidden = /\.bgm-player[^{]*\{[^}]*display:\s*none/.test(css);
+  // 상단 머리글(≈110px)을 안 가리고, 소개 띠 글자줄(화면 아래 258px)에도 안 닿아야 한다
+  const top = /\.bgm-player \{[\s\S]*?top:\s*(\d+)px/.exec(css);
+  const cardH = 200 + 40;                       // 창 + 캡션/제목 줄
+  const clearTop = top && +top[1] >= 110;
+  const clearBottom = (h) => +top[1] + cardH < h - 258;
+  const okPos = clearTop && clearBottom(900) && clearBottom(768);
+  console.log(`   MV 플레이어: ${box ? box[1] + '×' + box[2] : '?'} · 좁은 화면 ${mob ? mob[1] + '×' + mob[2] : '?'} · 숨김 ${hidden ? '❌' : '없음'} · top ${top ? top[1] : '?'}px (머리글 아래 ${clearTop ? '✅' : '❌'} · 소개 띠 위 ${okPos ? '✅' : '❌'})`);
+  if (!okSize || hidden || !okPos) errs++;
+}
+
+// 1) 클릭 = 다음으로 넘어가기 (짧은 세션으로 따로 확인)
+clickOn('btn-play');
+{
+  const card = byIdEl('play-card');
+  for (let k = 0; k < 400 && !card._classes.has('is-on'); k++) step(1);
+  const before = byIdEl('play-cue').dataset.cue;
+  const shownAt = frames.length;
+  if (!card._classes.has('is-on')) { errs++; console.log('   ❌ 카드가 안 뜸'); }
+  else {
+    const canvas = byIdEl('scene');
+    handlers.filter((h) => h.el === canvas && h.type === 'pointerdown')
+      .forEach((h) => h.fn({ button: 0, clientX: 5, clientY: 5, stopPropagation() {}, preventDefault() {} }));
+    let n = 0;
+    for (; n < 400; n++) { step(1); if (byIdEl('play-cue').dataset.cue !== before) break; }
+    const secs = (n * 0.05).toFixed(1);
+    console.log(`   클릭 후 ${secs}초 만에 다음 사건으로 (기다렸으면 5초) ${n * 0.05 < 4 ? '✅' : '❌ 안 넘어감'}`);
+    if (n * 0.05 >= 4) errs++;
+  }
+}
+// 좌우 키로 사건 건너뛰기
+{
+  const key = (k) => {
+    handlers.filter((h) => h.el === window && h.type === 'keydown')
+      .forEach((h) => h.fn({ key: k, preventDefault() {}, stopPropagation() {} }));
+    step(2);
+  };
+  const seq = [];
+  for (let i = 0; i < 5; i++) { key('ArrowRight'); seq.push(byIdEl('play-cue').dataset.cue); }
+  const fwd = new Set(seq).size;
+  const backFrom = seq[seq.length - 1];
+  key('ArrowLeft'); key('ArrowLeft');
+  const backTo = byIdEl('play-cue').dataset.cue;
+  console.log(`   좌우 건너뛰기: → 5번에 서로 다른 사건 ${fwd}개 · ← 2번에 ${backFrom === backTo ? '❌ 그대로' : `${backTo} 로 되돌아감 ✅`}`);
+  if (fwd < 4 || backFrom === backTo) errs++;
+}
+
+// 재생 중 UI 자동 숨김
+{
+  const b = document.body;
+  const hidden = !b._classes.has('show-ui');
+  handlers.filter((h) => h.type === 'pointermove').forEach((h) => h.fn({ clientX: 40, clientY: 40 }));
+  step(1);
+  const back = b._classes.has('show-ui');
+  console.log(`   UI 자동 숨김: 기본 ${hidden ? '숨김 ✅' : '❌ 보임'} · 마우스 움직이면 ${back ? '복귀 ✅' : '❌ 안 나옴'}`);
+  if (!hidden || !back) errs++;
+}
+
+clickOn('btn-play');          // 정지
+step(4);
+clickOn('btn-play');          // 처음부터 다시 — 속도 곡선은 손대지 않은 재생으로 잰다
+step(2);
+const cue = byIdEl('play-cue');
+let shown = 0, prev = '', frames0 = 0, focusSeen = false, fadedSeen = 0; const cueIds = []; let lastVidCue = '';
+const years = new Set(); const mds = new Set(); let clockOn = false;
+let headSeen = 0; const headTexts = new Set(); const headXs = []; let fanEarly = 0;
+let phaseEarly = 0; let phaseAhead = 0; let phaseSeen = 0;
+let gasBefore = 0; let gasAfter = 0;
+let lastBgmSrc = ''; const bgmSeq = []; let bgmSoft = 0;
+// 자리마다 따로 구르므로 자리별로 들어오는 쪽 글자를 모아 붙인다
+const rolled = (el) => {
+  const re = /class="rl-(?:cur|in)">([^<]*)</g;
+  const out = [];
+  let m;
+  while ((m = re.exec(el.innerHTML || ''))) out.push(m[1]);
+  return out.length ? out.join('') : el.textContent;
+};
+const prog = []; let bgmPeak = 0; let bangPeak = 0; let bangAt = -1; let nexusAt = -1;
+let vidCues = 0, maxThumbs = 0;
+try {
+  for (let k = 0; k < 9000 && document.body.classList.contains('is-playing'); k++) {
+    step(1); frames0++;
+    if (cue.dataset.cue && cue.dataset.cue !== prev) { prev = cue.dataset.cue; shown++; cueIds.push(prev); }
+    if (!focusSeen) {
+      focusSeen = handlers.some((h) => h.el._classes && h.el._classes.has('is-focus'));
+      if (focusSeen) fadedSeen = handlers.filter((h) => h.el._classes && h.el._classes.has('is-faded')).length;
+    }
+    prog.push(parseFloat(byIdEl('play-bar').style.width) || 0);
+    bgmPeak = Math.max(bgmPeak, bgm.volume);
+    const fo = parseFloat(byIdEl('bang-flash').style.opacity) || 0;
+    if (fo > bangPeak) { bangPeak = fo; bangAt = frames0; }
+    if (nexusAt < 0 && cue.dataset.cue === 'geoje-nexus') nexusAt = frames0;
+    // 시간선 끝에도 같은 날짜가 붙어 따라오는지
+    {
+      const api = globalThis.window.__rescene;
+      // 끝에 닿기 전에 「무수한 가능성」 갈래가 보이면 안 된다
+      if (api.play.active && api.futureFan.grp.visible) fanEarly++;
+      // 배경음이 지나온 MV 를 따라 바뀌는지
+      if (api.play.active) {
+        const src = api.bgm.src;
+        if (src !== lastBgmSrc) { lastBgmSrc = src; bgmSeq.push({ src, x: api.play.front }); }
+        if (api.bgm.volume > 0.001 && api.bgm.volume < 0.02) bgmSoft++;
+      }
+      // 가스는 빅뱅 전에는 안 보이고, 터진 뒤 서서히 차오른다
+      if (api.play.active) {
+        const gk = Math.max(...api.gasBlobs.map((b) => b.material.opacity));
+        if (bangAt >= 0) gasAfter = Math.max(gasAfter, gk);
+        else gasBefore = Math.max(gasBefore, gk);
+      }
+      // PHASE 이름표는 진행선이 그 자리에 닿기 전에 뜨면 안 된다
+      for (const r of api.revealables) {
+        for (const o of r.objs) {
+          const cls = (o.element && o.element.className) || '';
+          if (!/period-label/.test(cls) || !o.visible) continue;
+          phaseSeen++;
+          const d = o.position.x - api.play.front;
+          if (d > 2) { phaseEarly++; phaseAhead = Math.max(phaseAhead, d); }
+        }
+      }
+      if (api.headAnchor.visible) {
+        headSeen++;
+        headTexts.add(api.headDate.textContent);
+        headXs.push(api.headAnchor.position.x);
+      }
+    }
+    // 구르는 동안엔 옛 숫자와 새 숫자가 잠깐 겹쳐 있다. 들어오는 쪽만 읽는다.
+    years.add(rolled(byIdEl('pclk-year')));
+    mds.add(rolled(byIdEl('pclk-month')) + rolled(byIdEl('pclk-day')));
+    if (byIdEl('play-strip')._classes.has('is-on')) clockOn = true;
+    const pv = byIdEl('pcard-videos');
+    if (!pv.hidden && pv.children.length) {
+      maxThumbs = Math.max(maxThumbs, pv.children.length);
+      if (cue.dataset.cue !== lastVidCue) { lastVidCue = cue.dataset.cue; vidCues++; }
+    }
+  }
+} catch (e) { errs++; console.log(`   ❌ 재생 루프: ${e.stack.split('\n').slice(0, 2).join(' | ')}`); }
+const lastDateShown = byIdEl('play-date').textContent;
+console.log(`   소개된 사건 ${shown}개 · 총 ${(frames0 * 0.05).toFixed(0)}초 · 마지막 날짜 ${lastDateShown}`);
+// 피날레 — 갈래가 뻗고 나서 전체 보기로 돌아오는지
+{
+  const api = globalThis.window.__rescene;
+  const V = api.THREE.Vector3;
+  const home = new V(1090, 420, 3200);
+  // 갈래가 한꺼번에 터지지 않고 하나씩 돋는지 — 자란 갈래 수를 프레임마다 센다
+  const fan = api.futureFan;
+  console.log(`   갈래 미리보임: 재생 중 ${fanEarly}프레임 ${fanEarly === 0 ? '✅ 끝에 닿아야 나온다' : '❌ 미리 보임'}`);
+  if (fanEarly) errs++;
+  // 평소엔 uFlicker 0.28 로 옅게 깔려 있고, 돋아나는 갈래만 밝게 타오른다
+  const grown = () => fan.arms.filter((a) => a.mats[0].uniforms.uFlicker.value > 0.9).length;
+  const g0 = grown();
+  step(20);
+  const d0 = api.camera.position.distanceTo(home);
+  const seq = [];
+  for (let k = 0; k < 34; k++) { step(4); seq.push(grown()); }   // 0.2초 간격 6.8초
+  const peak = Math.max(...seq);
+  const rise = seq.filter((v, i) => i && v > seq[i - 1]).length;  // 새 갈래가 돋은 구간 수
+  const ok = g0 === 0 && peak === fan.arms.length && rise >= 8;
+  console.log(`   갈래: 평소 ${g0}개 밝음 → ${rise}번에 걸쳐 하나씩 최대 ${peak}/${fan.arms.length}개 ${ok ? '✅' : '❌'}`);
+  console.log(`          0.2초마다 밝은 갈래 수: ${seq.slice(0, 26).join(' ')}`);
+  if (!ok) errs++;
+  step(200);                       // 복귀 비행
+  const d1 = api.camera.position.distanceTo(home);
+  console.log(`   피날레 후 전체 보기 복귀: 거리 ${d0.toFixed(0)} → ${d1.toFixed(0)} ${d1 < d0 && d1 < 260 ? '✅' : '❌'}`);
+  if (!(d1 < d0 && d1 < 260)) errs++;
+}
+console.log(`   현재 사건 강조: ${focusSeen ? `동작 (동시에 ${fadedSeen}개 라벨 물러남)` : '❌ 안 걸림'}`);
+if (!focusSeen) errs++;
+const mvCues = cueIds.filter((c) => c.startsWith('mv:')).length;
+const digCues = cueIds.filter((c) => c === 'may-school' || c === 'zena-halmae').length;
+console.log(`   MV 소개 ${mvCues}개 · 파묘 소개 ${digCues}개 ${digCues === 0 ? '(정상 — 재생에서 제외)' : '❌ 나오면 안 됨'}`);
+if (digCues > 0 || mvCues === 0) errs++;
+console.log(`   영상 썸네일: ${vidCues}개 소개에서 표시 (한 화면 최대 ${maxThumbs}장)`);
+if (vidCues === 0) errs++;
+// 진행 막대로 속도·가속을 재서 급변이 없는지 본다 (부드러운 완급 확인)
+{
+  const v = [];
+  for (let i = 1; i < prog.length; i++) v.push(Math.max(0, prog[i] - prog[i - 1]));
+  const vmax = Math.max(...v) || 1;
+  let jumps = 0, amax = 0; const where = [];
+  for (let i = 1; i < v.length; i++) {
+    const a = Math.abs(v[i] - v[i - 1]) / vmax;   // 정규화 가속
+    amax = Math.max(amax, a);
+    if (a > 0.34) { jumps++; where.push(`${prog[i].toFixed(1)}%(v ${(v[i-1]/vmax*100).toFixed(0)}→${(v[i]/vmax*100).toFixed(0)})`); }
+  }
+  console.log(`   속도 곡선: 프레임당 최대 변화 ${(amax * 100).toFixed(1)}% · 급변 ${jumps}회 ${jumps === 0 ? '✅ 부드러움' : '❌ 튐'}`);
+  if (jumps > 0) { errs++; console.log('     위치: ' + where.slice(0, 6).join('  ')); }
+}
+{
+  const back = headXs.filter((x, i) => i && x < headXs[i - 1] - 0.01).length;
+  const grew = headXs.length > 1 && headXs[headXs.length - 1] > headXs[0] + 1000;
+  const ok = headSeen > 100 && headTexts.size > 50 && grew && back === 0;
+  console.log(`   시간선 끝 날짜: ${headSeen}프레임 표시 · ${headTexts.size}단계 · x ${(headXs[0]||0).toFixed(0)} → ${(headXs[headXs.length-1]||0).toFixed(0)} · 뒤로 감 ${back}회 ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+  const api = globalThis.window.__rescene;
+  console.log(`   재생 끝나면 감춤: ${api.headAnchor.visible ? '❌ 남아 있음' : '✅'}`);
+  if (api.headAnchor.visible) errs++;
+}
+const ys = [...years].filter(Boolean).sort().join(' → ');
+console.log(`   하단 날짜: ${clockOn ? '표시됨' : '❌ 안 뜸'} · 연도 ${ys} · 날짜 ${mds.size}단계`);
+if (!clockOn || years.size < 3 || mds.size < 50) errs++;
+{
+  // 곡이 MV 순서대로 바뀌었는지 (x 가 뒤로 가면 안 된다)
+  const api = globalThis.window.__rescene;
+  const order = api.MV_BY_X.map((t) => t.mv.id);
+  const ids = bgmSeq.map((b) => (b.src.match(/v=([\w-]+)/) || [])[1]);
+  const idx = ids.map((id) => order.indexOf(id));
+  const mono = idx.every((v, i) => i === 0 || v > idx[i - 1]);
+  const okSeq = bgmSeq.length >= 8 && mono && idx.every((v) => v >= 0);
+  console.log(`   배경음 곡 바뀜 ${bgmSeq.length}회 · MV 순서대로 ${mono ? '✅' : '❌ 뒤섞임'}`);
+  console.log(`      ${ids.map((id, i) => (MVS_NAME[id] || id)).join(' → ')}`);
+  console.log(`   전환 부드러움: 아주 작은 볼륨 구간 ${bgmSoft}프레임 ${bgmSoft > 20 ? '✅ 서서히 오르내림' : '❌ 툭 끊김'}`);
+  if (!okSeq || bgmSoft <= 20) errs++;
+}
+{
+  const ok = gasBefore < 0.005 && gasAfter > 0.03;
+  console.log(`   배경 가스: 빅뱅 전 ${gasBefore.toFixed(3)} → 터진 뒤 ${gasAfter.toFixed(3)} ${ok ? '✅ 터지고 나서 차오른다' : '❌'}`);
+  if (!ok) errs++;
+}
+console.log(`   빅뱅: 섬광 최대 ${bangPeak.toFixed(2)} · 터진 뒤 ${((nexusAt - bangAt) * 0.05).toFixed(1)}초 만에 분기점 소개 ${bangPeak > 0.5 && nexusAt > bangAt ? '✅' : '❌'}`);
+if (bangPeak < 0.4 || nexusAt <= bangAt) errs++;
+
+// 페이드아웃(1.4초)이 끝날 시간을 준 뒤 확인한다
+step(60);
+console.log(`   배경음: 재생 ${bgm.plays || 0}회 · 최고 볼륨 ${bgmPeak.toFixed(2)} · 페이드아웃 후 볼륨 ${bgm.volume.toFixed(3)} · ${bgm.paused ? '정지됨 ✅' : '❌ 계속 재생'}`);
+if (!bgm.plays || bgmPeak < 0.3 || !bgm.paused) errs++;
+
+// 영상 보는 동안 배경음 일시정지
+clickOn('btn-play');
+step(30);
+const volPlay = bgm.volume;
+handlers.filter((h) => h.el && h.el._classes && h.el._classes.has('mv-card')).slice(0, 1)
+  .forEach((h) => h.type === 'click' && h.fn({ stopPropagation() {} }));
+byIdEl('btn-mv') && clickOn('btn-mv');
+step(4);
+// 갤러리 항목을 눌러 플레이어를 연다
+const gal = byIdEl('mvgal-list');
+if (gal.children.length) {
+  const item = gal.children[0];
+  handlers.filter((h) => h.el === item && h.type === 'click').forEach((h) => h.fn({ stopPropagation() {} }));
+}
+step(6);
+const volMid = bgm.volume;          // 0.3초 — 접히는 중이어야 한다 (뚝 끊기면 이미 0)
+step(20);
+const volWatch = bgm.volume;        // 1.3초 — 다 접혔다
+clickOn('player-close');
+step(6);
+const volBackMid = bgm.volume;      // 0.3초 — 펴지는 중
+step(40);
+const volBack = bgm.volume;
+const fadeOk = volMid > 0.02 && volMid < volPlay && volWatch === 0 && volBackMid > 0.02 && volBackMid < volBack && volBack > 0.1;
+console.log(`   영상 보는 중 배경음: ${volPlay.toFixed(2)} →(0.3초) ${volMid.toFixed(2)} →(1.3초) ${volWatch.toFixed(2)} · 닫으면 →(0.3초) ${volBackMid.toFixed(2)} → ${volBack.toFixed(2)} ${fadeOk ? '✅ 접었다 폄' : '❌'}`);
+if (!fadeOk) errs++;
+clickOn('btn-play');
+step(40);
+
+// 음소거 토글
+clickOn('btn-play');
+step(30);
+const volOn = bgm.volume;
+clickOn('play-mute');
+step(6);
+console.log(`   음소거 토글: ${volOn.toFixed(2)} → ${bgm.volume.toFixed(2)} ${bgm.volume === 0 ? '✅' : '❌'}`);
+if (bgm.volume !== 0) errs++;
+clickOn('play-mute');
+clickOn('btn-play');
+step(60);
+console.log('   재생 상태:', document.body.classList.contains('is-playing') ? '아직 재생 중' : '끝까지 돌고 정지됨');
+
+try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.message}`); }
+
+// 3) 키보드
+// 광고 · 사주 곁줄기
+{
+  const api = globalThis.window.__rescene;
+  const names = api.sideLines.map((s) => `${s.data.label} ${s.items.length}편`).join(' · ');
+  const okCount = api.sideLines.length === 2 && api.sideLines.every((s) => s.items.length >= 8);
+  // 옆 레인(메라디오·대표·연수·굴욕)과 붙지 않아야 한다
+  const others = api.radios.concat(api.drives, api.staffs, api.shames.flatMap((m) => m.items || []));
+  let near = 0;
+  for (const sl of api.sideLines)
+    for (const t of sl.items)
+      if (others.some((o) => o.pos && Math.abs(o.pos.x - t.pos.x) < 30 && Math.abs(o.pos.y - t.pos.y) < 40)) near++;
+  // 두 줄끼리도 붙으면 안 된다
+  const [a, b] = api.sideLines;
+  let cross = 0;
+  for (const t of a.items)
+    if (b.items.some((o) => Math.abs(o.pos.x - t.pos.x) < 30 && Math.abs(o.pos.y - t.pos.y) < 40)) cross++;
+  const ys = api.sideLines.map((s) => (Math.min(...s.items.map((t) => t.pos.y))).toFixed(0));
+  const ok = okCount && near === 0 && cross === 0;
+  console.log(`   곁줄기: ${names} · 최저 y ${ys.join(' / ')} · 옆 레인과 붙음 ${near} · 서로 붙음 ${cross} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
+// 배경 가스 — 어느 방향에서 봐도 덩어리로 보이는지 (카메라를 향해 서는지)
+{
+  const api = globalThis.window.__rescene;
+  const V = api.THREE.Vector3;
+  const blobs = api.gasBlobs;
+  // 화면에 나란히 서는 방식(screen-aligned)이라 판의 법선이 카메라 정면축과 같아야 한다.
+  // (덩어리마다 카메라 쪽으로 각각 트는 게 아니라 전부 화면과 평행하게 선다)
+  const faceAt = () => {
+    let worst = 1;
+    const n = new V();
+    const fwd = new V(0, 0, 1).applyQuaternion(api.camera.quaternion).normalize();
+    for (const b of blobs) {
+      n.set(0, 0, 1).applyQuaternion(b.quaternion).normalize();
+      worst = Math.min(worst, n.dot(fwd));
+    }
+    return worst;
+  };
+  step(2);
+  const before = faceAt();
+  // 카메라를 완전히 다른 데서 보게 옮겨도 여전히 정면을 봐야 한다.
+  // 끝나면 원래 자리로 되돌려 놓는다 — 여기서 흐트러뜨리면 뒤의 겹침 측정이 다 어긋난다.
+  const keepP = api.camera.position.clone();
+  const keepQ = api.camera.quaternion.clone();
+  const keepT = api.controls.target.clone();
+  api.camera.position.set(2600, -900, -2200);
+  api.camera.lookAt(2600, 0, 0);
+  step(2);
+  const after = faceAt();
+  api.camera.position.copy(keepP);
+  api.camera.quaternion.copy(keepQ);
+  api.controls.target.copy(keepT);
+  api.camera.updateMatrixWorld(true);
+  step(2);
+  const zs = blobs.map((b) => b.position.z);
+  const depth = Math.max(...zs) - Math.min(...zs);
+  const ok = before > 0.999 && after > 0.999 && blobs.length >= 30 && depth > 900;
+  console.log(`   배경 가스: 덩어리 ${blobs.length}개 · 앞뒤 깊이 ${depth.toFixed(0)} · 정면도 ${before.toFixed(3)} → 뒤에서 봐도 ${after.toFixed(3)} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+  const dens = blobs.reduce((a, b) => a + b.material.opacity, 0);
+  console.log(`   가스 짙기(불투명도 합) ${dens.toFixed(2)}`);
+}
+
+// 재생 중 지나간 사건 라벨이 날짜 대신 제목을 다는지 (CSS 규칙 존재 확인)
+{
+  const css = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
+  const hideDate = /body\.is-playing[^{]*\.nl-date\s*\{[^}]*display:\s*none/.test(css);
+  const showTitle = /body\.is-playing[^{]*\.nl-title\s*\{[^}]*display:\s*block/.test(css);
+  const ok = hideDate && showTitle;
+  console.log(`   재생 중 라벨: 날짜 숨김 ${hideDate ? '✅' : '❌'} · 제목 표시 ${showTitle ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
+// 재생은 오늘에서 끝나고, 오늘을 넘는 순간 갈래가 뻗는다
+{
+  const today = new Date().toISOString().slice(0, 10);
+  const [y, m, d] = today.split('-');
+  const want = `${y}. ${m}. ${d}`;
+  const last = lastDateShown;
+  console.log(`   재생 끝 날짜: ${last} (오늘 ${want}) ${last === want ? '✅' : '❌'}`);
+  if (last !== want) errs++;
+}
+
+// 서체 — 실제로 불러오는지, 변수와 짝이 맞는지
+{
+  const css = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
+  const html = fs.readFileSync(path.join(HERE, '..', 'index.html'), 'utf8');
+  const link = /fonts\.googleapis\.com\/css2\?family=([^"']+)/.exec(html);
+  const fams = link ? [...link[1].matchAll(/family=([A-Za-z+]+)|^([A-Za-z+]+)/g)]
+    .map((m) => (m[1] || m[2] || '').replace(/\+/g, ' ')).filter(Boolean) : [];
+  const wanted = [...new Set([...(css.match(/--sans:\s*"([^"]+)"/) || []).slice(1),
+                              ...(css.match(/--mono:\s*"([^"]+)"/) || []).slice(1)])];
+  const loaded = wanted.every((w) => link && link[1].replace(/\+/g, ' ').includes(w));
+  const preconnect = /fonts\.gstatic\.com/.test(html);
+  const ok = !!link && loaded && preconnect;
+  console.log(`   서체: ${wanted.join(' + ')} · 링크 ${link ? '있음' : '❌ 없음'} · 짝 ${loaded ? '맞음' : '❌ 안 맞음'} · preconnect ${preconnect ? '✅' : '❌'}`);
+  if (!ok) errs++;
+  const tiny = (css.match(/font-size:\s*[0-8](\.\d)?px/g) || []);
+  // 남은 것들은 아이콘·배지·라틴 미세 표식(▶ ★ 최초 kbd PHASE)이라 읽는 글자가 아니다
+  console.log(`   9px 미만 글자: ${tiny.length}곳 (아이콘·배지·라틴 표식) ${tiny.length <= 16 ? '✅' : '⚠ 너무 많다'}`);
+  if (tiny.length > 16) errs++;
+}
+
+// 조작 안내 · 범례 접기 (C · B)
+{
+  const body = globalThis.document.body;
+  const press = (key) => handlers
+    .filter((h) => h.el === globalThis.window && h.type === 'keydown')
+    .forEach((h) => h.fn({ key, preventDefault() {}, stopPropagation() {} }));
+  const st = () => `${body.classList.contains('show-help') ? 'C' : '-'}${body.classList.contains('show-legend') ? 'B' : '-'}`;
+  const start = st();
+  press('c'); press('b');
+  const both = st();
+  press('c'); press('b');
+  const off = st();
+  // 힌트 칩을 눌러도 열린다
+  handlers.filter((h) => h.el === byIdEl('help-hint') && h.type === 'click').forEach((h) => h.fn({ stopPropagation() {} }));
+  handlers.filter((h) => h.el === byIdEl('legend-hint') && h.type === 'click').forEach((h) => h.fn({ stopPropagation() {} }));
+  const byChip = st();
+  press('c'); press('b');
+  const ok = start === '--' && both === 'CB' && off === '--' && byChip === 'CB';
+  console.log(`   안내·범례 접기: 기본 ${start} · C/B ${both} · 다시 ${off} · 칩 클릭 ${byChip} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
+// 제철 종료 표식 — 구간 끝 좌표에 서 있는지
+{
+  const api = globalThis.window.__rescene;
+  const ends = api.revealables.flatMap((r) => r.objs)
+    .filter((o) => o.element && /period-end/.test(o.element.className || ''));
+  const txt = ends.map((o) => (o.element.textContent || '').replace(/\s+/g, ' ').trim());
+  const ok = ends.length === 1 && /제철 종료/.test(txt[0]) && /2024/.test(txt[0]);
+  console.log(`   구간 종료 표식 ${ends.length}개 · "${txt.join(', ')}" ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
+// 재생 중 PHASE 이름표가 진행선보다 앞서 뜨지 않는지
+{
+  const api = globalThis.window.__rescene;
+  const ok = phaseEarly === 0 && phaseSeen > 200;
+  console.log(`   PHASE 이름표: 뜬 프레임 ${phaseSeen} · 진행선보다 앞서 뜸 ${phaseEarly}프레임 (최대 ${phaseAhead.toFixed(0)}) ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
+// 재생 중에 소개 카드의 영상 썸네일을 눌러 바로 보기
+{
+  const api = globalThis.window.__rescene;
+  const play = api.play;
+  clickOn('btn-play');
+  // 영상이 붙은 소개가 나올 때까지 돌린다
+  let vids = null;
+  for (let k = 0; k < 4000 && !vids; k++) {
+    step(1);
+    const list = byIdEl('pcard-videos');
+    // 소개 카드가 실제로 떠 있는 동안에만 누를 수 있다
+    if (!list.hidden && list.children.length && byIdEl('play-card')._classes.has('is-on')) vids = list.children[0];
+  }
+  if (!vids) { errs++; console.log('   ❌ 영상 붙은 소개를 못 만남'); }
+  else {
+    const volBefore = bgm.volume;
+    const frontBefore = play.front;
+    const holdBefore = play.hold;
+    handlers.filter((h) => h.el === vids && h.type === 'click').forEach((h) => h.fn({ stopPropagation() {} }));
+    step(30);
+    const open = byIdEl('player')._classes.has('is-on') || byIdEl('player')._classes.has('is-open');
+    const frontFrozen = Math.abs(play.front - frontBefore) < 0.01;
+    const volWatch = bgm.volume;
+    const cardStill = byIdEl('play-card')._classes.has('is-on');
+    const holdWatch = play.hold;
+    clickOn('player-close');
+    step(40);
+    const volBack = bgm.volume;
+    // 소개 시간이 다시 흐르거나(hold 감소), 이미 다 흘렀으면 진행선이 움직인다
+    const before = { h: play.hold, f: play.front };
+    step(60);
+    const resumed = play.hold < before.h - 0.01 || play.front > before.f + 0.01;
+    const held = Math.abs(holdWatch - holdBefore) < 0.01;   // 보는 동안 소개 시간도 멈춰 있었나
+    const ok = open && frontFrozen && held && cardStill && volWatch === 0 && volBack > 0.1 && resumed;
+    console.log(`   재생 중 영상 보기: 창 ${open ? '열림' : '❌'} · 진행선 ${frontFrozen ? '멈춤' : '❌'} · 소개시간 ${held ? '멈춤' : '❌ 계속 감'} · 카드 ${cardStill ? '유지' : '❌ 사라짐'} · 배경음 ${volBefore.toFixed(2)}→${volWatch.toFixed(2)}→${volBack.toFixed(2)} · 닫으면 ${resumed ? '이어서 진행' : '❌ 안 이어짐'} ${ok ? '✅' : '❌'}`);
+    if (!ok) errs++;
+  }
+  clickOn('btn-play');
+  step(40);
+}
+
+// 멤버 소개 — 다섯 장 · 별명과 가족이 다 실렸는지
+{
+  const open = globalThis.document.getElementById('btn-members');
+  handlers.filter((h) => h.el === open && h.type === 'click').forEach((h) => h.fn({ stopPropagation() {} }));
+  step(4);
+  const list = byIdEl('memgal-list');
+  const cards = list.children.length;
+  const html = list.children.map((c) => c.innerHTML || '').join('');
+  const nicks = (html.match(/<b><\/b>/g) || []).length;   // 이름 노드 수 (텍스트는 별도로 넣는다)
+  const openNow = byIdEl('memgal')._classes.has('is-open');
+  console.log(`   멤버 소개: 카드 ${cards}장 · 열림 ${openNow ? '✅' : '❌'}`);
+  if (!(cards === 5 && openNow)) errs++;
+  // 별명·가족 항목 수는 데이터에서 직접 센다
+  const { MEMBERS } = await import(pathToFileURL(path.join(HERE, '.tmp', 'data.js')).href);
+  const nick = MEMBERS.reduce((a, m) => a + m.nick.length, 0);
+  const fam = MEMBERS.reduce((a, m) => a + m.family.length, 0);
+  const noWhy = MEMBERS.flatMap((m) => m.nick).filter((n) => !n.why).length;
+  console.log(`   별명 ${nick}개 (유래 없는 것 ${noWhy}개) · 가족 ${fam}명 · 본명 ${MEMBERS.filter((m) => m.real).length}/5`);
+  if (!(nick >= 20 && fam >= 6 && MEMBERS.every((m) => m.real))) errs++;
+  handlers.filter((h) => h.el === byIdEl('memgal-close') && h.type === 'click').forEach((h) => h.fn({ stopPropagation() {} }));
+  step(2);
+  if (byIdEl('memgal')._classes.has('is-open')) { errs++; console.log('   ❌ 닫히지 않음'); }
+}
+
+// 대표와 이사 시간선
+{
+  const api = globalThis.window.__rescene;
+  const xs = api.staffs.map((t) => t.pos.x);
+  const ys = api.staffs.map((t) => t.pos.y);
+  const mono = xs.every((x, i) => !i || x > xs[i - 1]);
+  const ok = api.staffs.length >= 10 && mono && Math.min(...ys) < -150 && Math.max(...ys) > -320;
+  console.log(`   대표·이사 회차 ${api.staffs.length}개 · x ${xs[0].toFixed(0)}~${xs[xs.length-1].toFixed(0)} · y ${Math.min(...ys).toFixed(0)}~${Math.max(...ys).toFixed(0)} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+  // 메라디오(-152) / 연수아저씨(-308) 레인과 겹치지 않아야 한다
+  const near = api.staffs.filter((t) =>
+    api.radios.concat(api.drives).some((o) => Math.abs(o.pos.x - t.pos.x) < 30 && Math.abs(o.pos.y - t.pos.y) < 40)).length;
+  console.log(`   옆 레인과 붙은 회차: ${near}개 ${near === 0 ? '✅' : '❌'}`);
+  if (near) errs++;
+}
+
+// 전체 조망에서 「거제편」·「사투리편」 꼬리표가 접히는지
+{
+  const api = globalThis.window.__rescene;
+  const nx = api.branches.find((b) => b.ev.nexus);
+  const forks = (nx && nx.forks) || [];
+  const folded = forks.filter((f) => f.el.classList.contains('is-minor')).length;
+  console.log(`   전체 조망 · 분기 꼬리표 ${forks.length}개 중 ${folded}개 접힘 ${forks.length > 0 && folded === forks.length ? '✅' : '❌'}`);
+  if (!(forks.length > 0 && folded === forks.length)) errs++;
+}
+
+// 멤버 사진 — 영상 화면(maxresdefault) 이 아니라 프로필 사진이어야 한다
+{
+  const html = [...byId.values()].map((e) => e.innerHTML || '').join('') +
+    globalThis.document.body.innerHTML;
+  const labels = handlers.map((h) => (h.el && h.el.innerHTML) || '').join('');
+  const all = html + labels;
+  const srcs = all.match(/\.\/assets\/members\/[^"']+/g) || [];
+  const frames = (all.match(/maxresdefault/g) || []).length;
+  // 실제로 파일이 있는지까지 본다 (한글 파일명 인코딩 사고를 여기서 잡는다)
+  const fsx = await import('node:fs');
+  const missing = [...new Set(srcs)].filter(
+    (u) => !fsx.existsSync(new URL('../' + decodeURIComponent(u.slice(2)), import.meta.url)));
+  const ok = srcs.length >= 10 && frames === 0 && missing.length === 0;
+  console.log(`   멤버 사진: 프로필 ${srcs.length}장 · 영상 화면 ${frames}장 · 없는 파일 ${missing.length}개 ${ok ? '✅' : '❌'}`);
+  if (missing.length) console.log(`      ${missing.join(', ')}`);
+  if (!ok) errs++;
+}
+
+// 구간 이름표 — 높이가 맞는지, 누르면 그 구간으로 날아가는지
+{
+  const api = globalThis.window.__rescene;
+  const eras = api.declutter.filter((d) => d.kind === 'era');
+  const ys = eras.map((d) => d.base.y);
+  const spread = Math.max(...ys) - Math.min(...ys);
+  console.log(`   구간 이름표 ${eras.length}개 · 높이 편차 ${spread.toFixed(1)} ${eras.length === 5 && spread < 0.01 ? '✅' : '❌'}`);
+  if (!(eras.length === 5 && spread < 0.01)) errs++;
+
+  const target = eras.find((d) => (d.el.className || '').includes('era-2025'));
+  const before = api.camera.position.clone();
+  handlers.filter((h) => h.el === target.el && h.type === 'click')
+    .forEach((h) => h.fn({ stopPropagation() {} }));
+  step(60);
+  const want = new api.THREE.Vector3(1190, 66, 1000);   // ERAS 2025 의 cam.pos
+  const moved = before.distanceTo(api.camera.position);
+  const near = api.camera.position.distanceTo(want);
+  console.log(`   이름표 클릭 → 2025 구간으로 이동: ${moved.toFixed(0)} 만큼 움직여 목표까지 ${near.toFixed(0)} ${moved > 200 && near < 60 ? '✅' : '❌'}`);
+  if (!(moved > 200 && near < 60)) errs++;
+}
+
+// 라벨 겹침 해소 — 전체 조망에서 화면 좌표 겹침을 잰다
+{
+  const api = globalThis.window.__rescene;
+  if (!api) { errs++; console.log('   ❌ 상태 핸들 없음'); }
+  else {
+    const V = api.THREE.Vector3;
+    const measure = (useOffset) => {
+      const cam = api.camera;
+      const W = 1280, H = 720;
+      const pts = [];
+      for (const d of api.declutter) {
+        if (!d.base) continue;
+        if (d.baseFn) d.baseFn(d.base);
+        const src = useOffset ? d.obj.getWorldPosition(new V()) : d.base;
+        const v = new V().copy(src).project(cam);
+        if (v.z > 1) continue;
+        if (d.el._classes && (d.el._classes.has('is-minor') || d.el._classes.has('is-far'))) continue;
+        pts.push({ x: (v.x * 0.5 + 0.5) * W, y: (-v.y * 0.5 + 0.5) * H, w: d.w || 150, h: d.h || 44 });
+      }
+      let n = 0;
+      for (let i = 0; i < pts.length; i++)
+        for (let j = i + 1; j < pts.length; j++) {
+          const a = pts[i], b = pts[j];
+          if (Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.h + b.h) / 2) n++;
+        }
+      return [n, pts.length];
+    };
+    const shot = (label, id) => {
+      clickOn(id);
+      step(150);                   // 카메라 이동 + 해소 수렴
+      const [b, n] = measure(false);
+      const [a] = measure(true);
+      const ok = a <= b;
+      console.log(`   ${label.padEnd(6)} 라벨 ${String(n).padStart(2)}개 · 겹침 ${String(b).padStart(2)}쌍 → ${String(a).padStart(2)}쌍 ${ok ? '✅' : '❌'}`);
+      if (!ok) errs++;
+      return [b, a];
+    };
+    console.log('   겹침 해소 (해소 전 → 후)');
+    shot('파묘', 'btn-era-past');
+    shot('연습생', 'btn-era-trainee');
+    shot('2024', 'btn-era-2024');
+    shot('2025', 'btn-era-2025');
+    shot('2026', 'btn-era-2026');
+    clickOn('btn-reset');
+    step(150);
+    const [before, total] = measure(false);
+    const [after] = measure(true);
+    {
+      }
+    console.log(`   전체    라벨 ${String(total).padStart(2)}개 · 겹침 ${String(before).padStart(2)}쌍 → ${String(after).padStart(2)}쌍 ${after <= before ? '✅' : '❌'}`);
+    if (after > before) errs++;
+  }
+}
+
+
+console.log('▸ 키보드');
+for (const key of ['m', 'Escape', 'ArrowRight', 'ArrowLeft', '0', 'Home', 'm', 'M', 'Escape'])
+  fire(`key ${key}`, (h) => h.el === window && h.type === 'keydown', { key });
+
+// 4) 캔버스 포인터 + 리사이즈 + 스크러버 호버
+console.log('▸ 포인터 · 리사이즈');
+for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointerleave', 'wheel'])
+  fire(t, (h) => h.type === t);
+fire('resize', (h) => h.el === window && h.type === 'resize');
+fire('scrub hover', (h) => h.type === 'pointerenter' || h.type === 'pointerleave');
+
+// 5) 루프를 길게 돌린다 (선택/호버 상태가 섞인 채로)
+console.log('▸ 렌더 루프 60프레임');
+try { step(60); } catch (e) { errs++; console.log(`   ❌ 루프: ${e.stack.split('\n').slice(0,2).join(' | ')}`); }
+
+console.log(errs ? `\n❌ 상호작용 오류 ${errs}건` : '\n✅ 상호작용 경로 전부 통과');
+process.exit(errs ? 1 : 0);
