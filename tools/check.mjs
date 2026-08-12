@@ -570,7 +570,13 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const fam = MEMBERS.reduce((a, m) => a + m.family.length, 0);
   const noWhy = MEMBERS.flatMap((m) => m.nick).filter((n) => !n.why).length;
   console.log(`   별명 ${nick}개 (유래 없는 것 ${noWhy}개) · 가족 ${fam}명 · 본명 ${MEMBERS.filter((m) => m.real).length}/5`);
-  if (!(nick >= 20 && fam >= 6 && MEMBERS.every((m) => m.real))) errs++;
+  // 가족은 공인이 아니다 — 성함·생년이 다시 새어 들어가면 잡는다 (반려견은 예외)
+  const named = MEMBERS.flatMap((m) => m.family).filter((f) => f.name && f.rel !== '반려견');
+  const born = MEMBERS.flatMap((m) => m.family).filter((f) => /\d{4}년생/.test(f.note || ''));
+  const clean = named.length === 0 && born.length === 0;
+  console.log(`   가족 신원 정보: 성함 ${named.length}건 · 생년 ${born.length}건 ${clean ? '✅ 없음' : '❌ 들어 있음'}`);
+  if (!clean) errs++;
+  if (!(nick >= 20 && fam >= 4 && MEMBERS.every((m) => m.real))) errs++;
   handlers.filter((h) => h.el === byIdEl('memgal-close') && h.type === 'click').forEach((h) => h.fn({ stopPropagation() {} }));
   step(2);
   if (byIdEl('memgal')._classes.has('is-open')) { errs++; console.log('   ❌ 닫히지 않음'); }
