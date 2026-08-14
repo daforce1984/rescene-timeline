@@ -881,13 +881,14 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
 }
 
 
-// 광고가 끝나면 화면이 아래 소개 띠 자리로 내려앉는다 — 「영상만」, 아주 옅게
+// 광고가 끝나면 화면이 아래 소개 패널의 바탕으로 내려앉는다 — 「영상만」, 옅게
 {
   const api = globalThis.window.__rescene;
   const st = api.bgmStage;
   const card = byIdEl('bgm-player');
   const frame = byIdEl('bgm-frame');
   const band = byIdEl('play-strip').getBoundingClientRect();
+  const mainSrc = fs.readFileSync(path.join(HERE, '..', 'js', 'main.js'), 'utf8');
 
   st.set(true);
   const r = st.rect();
@@ -907,23 +908,23 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   // 투명도 · 겹치는 순서
   const sp = /\.bgm-stage\.is-space \{([^}]*)\}/.exec(CSS);
   const op = sp && /opacity:\s*([\d.]+)/.exec(sp[1]);
-  const seeThru = op && +op[1] > 0 && +op[1] <= 0.25;
-  // 멈추면 다시 또렷해진다 — 흐를 땐 옅게, 멈추면 진하게
-  const hp = /\.bgm-stage\.is-space\.is-held \{([^}]*)\}/.exec(CSS);
-  const hop = hp && /opacity:\s*([\d.]+)/.exec(hp[1]);
-  st.hold(true);
-  const heldOn = st.held && st.el._classes.has('is-held');
-  st.hold(false);
-  const heldOff = !st.held && !st.el._classes.has('is-held');
-  const heldUp = hop && op && +hop[1] > +op[1] * 2 && +hop[1] <= 1;
+  const seeThru = op && +op[1] > 0 && +op[1] <= 0.2;
   // 섞임은 모니터일 때부터 걸어 둔다 — 내려앉는 순간에만 켜면 그 한 프레임이 번쩍인다
   const base = /\.bgm-stage \{([^}]*)\}/.exec(CSS);
   const blend = !!(base && /mix-blend-mode:\s*screen/.test(base[1]))
     && !(sp && /mix-blend-mode:/.test(sp[1]));
-  // 소개 띠(.play-strip) 바탕은 거의 불투명하다 — 그 아래로 들어가면 아예 안 보인다
+  // 「바탕으로」 — 패널 바탕(.play-bg) 위, 패널 글자(.play-strip) 아래에 끼어야 한다.
+  // 바탕 아래로 가면 바탕이 거의 불투명해서 아예 안 보이고,
+  // 글자 위로 가면 바탕이 아니라 글자를 덮는 막이 된다.
+  const bgz = /\.play-bg \{[^}]*z-index:\s*(\d+)/.exec(CSS);
   const stz = /\.play-strip \{[^}]*z-index:\s*(\d+)/.exec(CSS);
   const zi = sp && /z-index:\s*(\d+)/.exec(sp[1]);
-  const above = zi && stz && +zi[1] > +stz[1];
+  const between = zi && stz && bgz && +zi[1] > +bgz[1] && +zi[1] < +stz[1];
+  // 바탕은 패널을 재서 높이를 맞춘다 (CSS 에 또 적으면 어긋난다)
+  const bgFit = Math.abs(parseFloat(byIdEl('play-bg').style.height) - band.height) < 1.5;
+  // 곡이 멈추면(일시정지·광고) 이 자리를 떠나 우상단 작은 창으로 돌아간다
+  const poll = /ytPoll <= 0[\s\S]*?\n  \}/.exec(mainSrc);
+  const leaves = !!poll && /setBgmStage\(false\)/.test(poll[0]) && /'pause'/.test(mainSrc);
   // 「영상만」 — 화면(#bgm-frame)은 카드 밖(#bgm-stage) 에 있어야 테두리·글자가 안 따라온다.
   // 겸사겸사 DOM 에서 iframe 을 옮겨 붙일 일도 없어진다 (옮기면 유튜브가 다시 문다).
   const html = fs.readFileSync(path.join(HERE, '..', 'index.html'), 'utf8');
@@ -933,20 +934,20 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   // 유튜브 API 는 넘겨준 칸을 iframe 으로 통째로 갈아 끼운다.
   // 자리를 계산해 넣는 칸(#bgm-frame)을 넘기면 그게 떨어져 나가 화면이 안 커진다 —
   // 실제로 그 버그로 영상이 우상단 모니터 크기에 머물렀다.
-  const mainSrc = fs.readFileSync(path.join(HERE, '..', 'js', 'main.js'), 'utf8');
   const mount = /function bgmMount\(\)[\s\S]*?\n\}/.exec(mainSrc);
   const hostOk = !!mount && /getElementById\('bgm-yt'\)/.test(mount[0]) && !/'bgm-frame'/.test(mount[0]);
   const nested = /<div id="bgm-frame"[^>]*>[\s\S]{0,400}?<div id="bgm-yt">/.test(html);
 
-  console.log(`   소개 띠 영상: ${Math.round(r.w)}×${Math.round(r.h)} 로 띠(${Math.round(band.width)}×${Math.round(band.height)}) 덮음 ${covers && ratio && onBand ? '✅' : '❌'}`
-    + ` · 띠 밖 잘라냄 ${clipped ? '✅' : '❌'}`
+  console.log(`   소개 패널 바탕 영상: ${Math.round(r.w)}×${Math.round(r.h)} 로 패널(${Math.round(band.width)}×${Math.round(band.height)}) 덮음 ${covers && ratio && onBand ? '✅' : '❌'}`
+    + ` · 패널 밖 잘라냄 ${clipped ? '✅' : '❌'}`
     + ` · 투명도 ${op ? op[1] : '?'} ${seeThru && blend ? '✅ 옅게 비침' : '❌'}`
-    + ` · 멈추면 ${hop ? hop[1] : '?'} ${heldOn && heldOff && heldUp ? '✅ 또렷해짐' : '❌'}`
-    + ` · 띠 바탕 위 ${above ? '✅' : '❌'} · 영상만 ${onlyVideo ? '✅' : '❌'}`
+    + ` · 바탕(${bgz ? bgz[1] : '?'}) < 영상(${zi ? zi[1] : '?'}) < 글자(${stz ? stz[1] : '?'}) ${between ? '✅' : '❌'}`
+    + ` · 바탕 높이 맞음 ${bgFit ? '✅' : '❌'} · 멈추면 작은 창 ${leaves ? '✅' : '❌'}`
+    + ` · 영상만 ${onlyVideo ? '✅' : '❌'}`
     + ` · 자리 옮김 ${marked && moved ? '✅' : '❌'} · 되돌아옴 ${back ? '✅' : '❌'}`
     + ` · 유튜브가 갈아 끼울 칸 따로 ${hostOk && nested ? '✅' : '❌ 자리 잡는 칸이 떨어져 나감'}`);
-  if (!covers || !ratio || !onBand || !clipped || !seeThru || !blend || !heldOn || !heldOff || !heldUp
-    || !above || !onlyVideo || !marked || !moved || !back || !stageHtml || !hostOk || !nested) errs++;
+  if (!covers || !ratio || !onBand || !clipped || !seeThru || !blend || !between || !bgFit || !leaves
+    || !onlyVideo || !marked || !moved || !back || !stageHtml || !hostOk || !nested) errs++;
 }
 
 // 모바일에서 번쩍이던 것들 — 다시 들어오지 않게 막아 둔다

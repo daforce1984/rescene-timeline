@@ -38,9 +38,12 @@
     <canvas id="scene"></canvas>
     <!-- CSS2DRenderer 의 라벨 레이어가 여기에 삽입된다 -->
 
+    <!-- 아래 소개 패널의 바탕. 배경음 영상이 이 위에 깔리고 패널의 글자는 다시 그 위에 온다 -->
+    <div id="play-bg" class="play-bg" aria-hidden="true"></div>
+
     <!-- 배경음 영상이 내려앉는 자리.
          광고가 끝나고 곡이 실제로 시작되면, 우상단 모니터에 있던 화면이
-         화면 아래 소개 띠 자리로 내려앉는다 (영상만 — 테두리도 글자도 안 따라온다).
+         아래 소개 패널의 바탕으로 내려앉는다 (영상만 — 테두리도 글자도 안 따라온다).
          DOM 에서 iframe 을 옮기면 유튜브가 처음부터 다시 물기 때문에,
          화면(#bgm-frame)은 처음부터 여기 있고 **자리만** 옮겨 다닌다. -->
     <div id="bgm-stage" class="bgm-stage" aria-hidden="true">
@@ -254,7 +257,7 @@
           <h2 id="ask-title">배경음을 틀까요?</h2>
           <p>공식 MV <b>「LOVE ATTACK」</b> 을 유튜브로 그대로 틉니다.
             광고가 먼저 붙을 수 있는데, <b>광고가 끝나고 곡이 시작되면</b> 그때 시간선이 자라기 시작합니다.
-            영상은 화면 아래 소개 자리에 아주 옅게 깔립니다.</p>
+            영상은 화면 아래 소개 패널의 바탕으로 옅게 깔립니다.</p>
           <div class="ask-btns">
             <button id="ask-yes" class="ask-btn is-yes" type="button">소리와 함께</button>
             <button id="ask-no" class="ask-btn" type="button">소리 없이</button>

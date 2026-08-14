@@ -4015,7 +4015,8 @@ const bgmAlbum = bgmView && bgmView.querySelector('.bgmp-meta em');
 const bgmStage = document.getElementById('bgm-stage');
 const bgmFrame = document.getElementById('bgm-frame');
 const bgmSlot = document.getElementById('bgm-slot');
-const bgmBand = document.getElementById('play-strip');   // 영상이 깔릴 자리 = 아래 소개 띠
+const bgmBand = document.getElementById('play-strip');   // 영상이 깔릴 자리 = 아래 소개 패널
+const bgmBandBg = document.getElementById('play-bg');    // 그 패널의 바탕 (영상은 이 위에 깔린다)
 let ytPlayer = null;
 let ytReady = false;
 
@@ -4203,6 +4204,8 @@ function bgmStageRect() {
   return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
 }
 function bgmLayout() {
+  // 패널 바탕은 패널 자체를 재서 높이를 맞춘다 — CSS 에 또 적어 두면 둘이 어긋난다
+  if (bgmBandBg && bgmBandBg.style) bgmBandBg.style.height = `${Math.round(bgmBandRect().h)}px`;
   if (!bgmFrame || !bgmFrame.style) return;
   const r = bgmStageRect();
   bgmFrame.style.left = `${Math.round(r.x)}px`;
@@ -4254,14 +4257,6 @@ function ytState() {
 /** 광고가 끝나고 곡이 실제로 시작됐는가 */
 const ytContentLive = () => ytState() === 'play';
 
-/** 소리가 멈춰 있는 동안에는 배경 화면을 다시 또렷하게 — 보라고 깔아 둔 화면이니까 */
-let bgmHeld = false;
-function setBgmHeld(on) {
-  const want = !!on;
-  if (bgmHeld === want) return;
-  bgmHeld = want;
-  if (bgmStage) bgmStage.classList.toggle('is-held', bgmHeld);
-}
 
 function bgmStart() {
   // 시작 곡은 진행선이 서 있는 자리의 곡 — 한 곡 고정이면 그 한 곡이다
@@ -4277,7 +4272,6 @@ function bgmStart() {
 function bgmStop() {
   bgmTarget = 0;
   setBgmStage(false);
-  setBgmHeld(false);
   if (bgmView) { bgmView.classList.remove('is-on'); bgmView.setAttribute('aria-hidden', 'true'); }
   if (bgmStage) { bgmStage.classList.remove('is-on'); bgmStage.setAttribute('aria-hidden', 'true'); }
 }
@@ -4329,13 +4323,11 @@ function bgmUpdate(dt) {
   if (ytPoll <= 0) {
     ytPoll = 0.25;
     const st = bgmTarget > 0 ? ytState() : 'none';
-    if (st === 'play') { ytMiss = 0; setBgmStage(true); setBgmHeld(false); }
-    // 멈춰 있으면 자리는 그대로 두고 또렷해지기만 한다 (돌아오면 다시 옅어진다)
-    else if (st === 'pause') { ytMiss = 0; setBgmHeld(true); }
-    // 곡을 갈아 끼워 광고가 또 붙으면 화면을 도로 모니터로 올린다 —
-    // 광고를 소개 띠에 깔아 둘 이유는 없다. 다만 잠깐 끊긴 걸 광고로 오해해
-    // 화면이 왔다 갔다 하면 안 되니, 여섯 번(1.5초) 연달아 아닐 때만.
-    else if (++ytMiss > 6) { setBgmStage(false); setBgmHeld(false); }
+    if (st === 'play') { ytMiss = 0; setBgmStage(true); }
+    // 곡이 안 흐르면(일시정지·광고) 화면은 **우상단 작은 창으로 돌아간다.**
+    // 소개 패널 바탕은 곡이 흐르는 동안의 것이고, 멈춘 화면은 작은 창에서 봐야 보인다.
+    // 잠깐 끊긴 걸 오해해 왔다 갔다 하면 안 되니 여섯 번(1.5초) 연달아 아닐 때만 옮긴다.
+    else if (++ytMiss > 6) setBgmStage(false);
   }
   waitTick(dt);
 }
@@ -4680,6 +4672,7 @@ function startPlay() {
   playBtn.textContent = '■ 정지';
   playHud.classList.add('is-on');
   if (clockEl) clockEl.classList.add('is-on');
+  bgmLayout();   // 소개 패널 바탕 높이를 패널에 맞춘다 (서체가 늦게 붙으면 키가 달라진다)
   if (bgmChoice !== false) bgmStart();   // 「소리 없이」를 고른 경우엔 유튜브를 아예 안 문다
   clkLastY = '';
   clkLastM = '';
@@ -5797,9 +5790,7 @@ const bgmStageApi = {
   layout: bgmLayout,
   rect: () => bgmStageRect(),
   set: (v) => setBgmStage(v),
-  hold: (v) => setBgmHeld(v),
   get space() { return bgmSpace; },
-  get held() { return bgmHeld; },
 };
 /** 재생을 열기 전 물음 · 광고 대기 */
 const askGate = {

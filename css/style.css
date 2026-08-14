@@ -2034,7 +2034,8 @@ body.is-playing.show-ui .play-hud.is-on {
 .bang-flash {
   position: absolute;
   inset: 0;
-  z-index: 7;
+  /* 소개 패널(8)까지 포함해 전부 씻어 내야 「터졌다」로 읽힌다 */
+  z-index: 9;
   pointer-events: none;
   opacity: 0;
   /* 향기가 번지는 느낌 — 가운데는 희고 밖으로 갈수록 분홍·살구로 */
@@ -2121,13 +2122,18 @@ body.is-playing.show-ui .play-hud.is-on {
    날짜와 사건을 같은 띠 안에 넣고 내용만 바꿔 넣는다. 위치는 절대 안 움직인다.
    ================================================================== */
 
-.play-strip {
+/* 소개 패널의 **바탕**만 따로 떼어 낸 층.
+   배경음 영상이 이 위(z 7)에 깔리고 패널의 글자는 다시 그 위(z 8)에 온다 —
+   그래서 영상이 「글자를 덮는 막」이 아니라 「패널의 바탕」으로 읽힌다.
+   한 요소 안에서는 그 사이에 다른 층을 끼울 수 없어서 바탕을 밖으로 꺼냈다.
+   높이는 JS 가 패널을 재서 넣는다 (여기서 또 적어 두면 둘이 어긋난다). */
+.play-bg {
   position: absolute;
   z-index: 6;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 0 clamp(20px, 5vw, 74px) clamp(22px, 4vh, 46px);
+  height: 0;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.6s ease;
@@ -2140,11 +2146,24 @@ body.is-playing.show-ui .play-hud.is-on {
     rgba(5, 3, 2, 0.86) 62%,
     rgba(6, 4, 2, 0.5) 82%,
     transparent 100%);
+}
+body.is-playing .play-bg { opacity: 1; }
+
+.play-strip {
+  position: absolute;
+  z-index: 8;                  /* 바탕(6) · 영상(7) 위 */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 clamp(20px, 5vw, 74px) clamp(22px, 4vh, 46px);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
   padding-top: 148px;
 }
 .play-strip.is-on { opacity: 1; }
 /* 재생 중에는 이 띠가 클릭을 받아 낸다.
-   z-index 가 하단 버튼(.hud 4)보다 위(6)라, 다음으로 넘기려고 누른 게
+   z-index 가 하단 버튼(.hud 4)보다 위라, 다음으로 넘기려고 누른 게
    실수로 「전체」나 「2025」 버튼을 누르는 일이 없어진다.
    띠 안의 영상 썸네일만 자기 클릭을 따로 챙긴다(stopPropagation). */
 body.is-playing .play-strip { pointer-events: auto; }
@@ -2557,16 +2576,15 @@ body.is-playing .play-strip { pointer-events: auto; }
   transition: opacity 0.9s ease;
 }
 .bgm-stage.is-on { opacity: 1; }
-/* 곡이 흐르는 동안 — 화면 아래 소개 띠 자리에만 아주 옅게 깔린다.
-   소개 띠(z 6)의 바탕은 거의 불투명해서 그 아래로 들어가면 아예 안 보인다.
-   그래서 띠 위에 얹되, 2% 라 글자를 읽는 데는 걸리지 않는다. */
+/* 곡이 흐르는 동안 — 아래 소개 패널의 **바탕**으로 깔린다.
+   패널 바탕(.play-bg, z 6) 위 · 패널 글자(.play-strip, z 8) 아래.
+   그래서 글자를 덮는 막이 아니라 패널의 바탕으로 읽힌다. */
 .bgm-stage.is-space {
   z-index: 7;
-  opacity: 0.02;
+  opacity: 0.1;
 }
-/* 소리가 멈추면 다시 또렷해진다 — 볼 수 있으라고 깔아 둔 화면이니까.
-   다만 글자 위에 얹히므로 배경일 때만큼 진하게는 못 올린다. */
-.bgm-stage.is-space.is-held { opacity: 0.45; }
+/* 곡이 멈추면 이 자리를 떠나 우상단 작은 창으로 돌아간다 (setBgmStage(false)) —
+   멈춘 화면은 바탕에 옅게 깔려 있어 봐야 안 보이기 때문. */
 
 .bgmp-frame {
   position: absolute;
