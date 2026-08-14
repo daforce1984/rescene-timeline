@@ -5582,15 +5582,22 @@ function tick() {
       stopPlay(false);
     } else {
       applyReveal();
-      // 카메라는 늘 본류를 화면 중앙에 둔다. 사건을 소개할 때도 마찬가지 —
-      // 분기 쪽으로 끌어당기지도, 확대하지도 않는다. 화면이 흔들리면
-      // 어디가 기준선인지 흐려지고, 읽는 도중에 크기가 변하면 눈이 피곤하다.
-      // 움직이는 건 진행선을 따라가는 가로 이동뿐이다.
+      // 평소에는 본류를 화면 중앙에 두고 진행선을 따라 가로로만 흐른다.
+      // 사건을 소개하는 동안에는 **그 사건이 화면 한가운데 오도록** 카메라가 옮겨 간다 —
+      // 확대는 하지 않는다(거리를 그대로 두면 크기가 안 변해서 눈이 안 피곤하다).
+      // 오가는 곡선은 스포트라이트(focusK)와 같은 것을 쓴다. 그래서 사건이 밝아지는
+      // 속도로 다가가고, 잦아드는 속도로 본류에 돌아온다 — 따로 어긋나 보이지 않는다.
       const fp = pointAtX(MAIN, clamp(play.front, TIME.xTailHead, TIME.xTailEnd)).point;
       const aimX = fp.x + 150;   // 진행 방향을 조금 앞서 본다
       const aimY = fp.y + 40;
       playTgt.set(aimX, aimY, 0);
-      playPos.set(aimX - 120, aimY + 235, 940);
+      if (focusK > 0.001) {
+        playTgt.lerp(focusPos, focusK);
+        // 정가운데에 딱 놓으면 사건 위에 붙는 이름표와 안내 칩이 잘린다.
+        // 화면 높이의 한 자락만큼 올려 두면 사건·이름표가 한 덩어리로 가운데 온다.
+        playTgt.y += focusK * 62;
+      }
+      playPos.set(playTgt.x - 120, playTgt.y + 235, playTgt.z + 940);
       // 빅뱅 순간엔 카메라가 잠깐 흔들린다
       const sh = bangShake();
       if (sh > 0) {
@@ -5761,6 +5768,6 @@ const askGate = {
   // 검사기가 「소리 없이」 길도 재 볼 수 있게 열어 둔다
   reset: () => { bgmChoice = null; waitDone = false; },
 };
-window.__rescene = { declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, bgmStage: bgmStageApi, askGate, LOW_GPU, AA_SAMPLES, get glLost() { return glLost; }, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
+window.__rescene = { declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, bgmStage: bgmStageApi, askGate, LOW_GPU, AA_SAMPLES, get glLost() { return glLost; }, focusPos, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
 
 tick();

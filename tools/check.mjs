@@ -198,6 +198,10 @@ const rolled = (el) => {
   return out.length ? out.join('') : el.textContent;
 };
 const prog = []; let bgmPeak = 0; let bangPeak = 0; let bangAt = -1; let nexusAt = -1;
+const cueCenter = new Map();   // 사건 → 화면 한가운데에 가장 가까웠던 거리
+// 하네스의 OrbitControls 는 껍데기라 update() 가 카메라를 target 쪽으로 돌려 주지 않는다.
+// 화면 좌표를 재려면 같은 자리에 세운 사본을 직접 target 쪽으로 돌려서 본다.
+const probeCam = globalThis.window.__rescene.camera.clone();
 let vidCues = 0, maxThumbs = 0;
 try {
   for (let k = 0; k < 9000 && document.body.classList.contains('is-playing'); k++) {
@@ -244,6 +248,17 @@ try {
         headTexts.add(api.headDate.textContent);
         headXs.push(api.headAnchor.position.x);
       }
+      // 사건을 소개하는 동안에는 그 사건이 화면 한가운데로 와야 한다.
+      // 사건마다 「가운데에 가장 가까웠던 순간」을 화면 좌표(NDC, 0=정중앙 1=가장자리)로 잰다.
+      if (api.play.active && api.play.hold > 0 && (api.play.focus >= 0 || api.play.focusMv >= 0)) {
+        const key = cue.dataset.cue || '?';
+        probeCam.position.copy(api.camera.position);
+        probeCam.lookAt(api.controls.target);
+        probeCam.updateMatrixWorld(true);
+        const p = api.focusPos.clone().project(probeCam);
+        const d = Math.hypot(p.x, p.y);
+        cueCenter.set(key, Math.min(cueCenter.has(key) ? cueCenter.get(key) : 9, d));
+      }
     }
     // 구르는 동안엔 옛 숫자와 새 숫자가 잠깐 겹쳐 있다. 들어오는 쪽만 읽는다.
     years.add(rolled(byIdEl('pclk-year')));
@@ -258,6 +273,17 @@ try {
 } catch (e) { errs++; console.log(`   ❌ 재생 루프: ${e.stack.split('\n').slice(0, 2).join(' | ')}`); }
 const lastDateShown = byIdEl('play-date').textContent;
 console.log(`   소개된 사건 ${shown}개 · 총 ${(frames0 * 0.05).toFixed(0)}초 · 마지막 날짜 ${lastDateShown}`);
+// 소개하는 동안 사건이 화면 한가운데로 오는가 (0 = 정중앙, 1 = 화면 가장자리)
+{
+  const ds = [...cueCenter.values()].sort((a, b) => a - b);
+  const mid = ds.length ? ds[Math.floor(ds.length / 2)] : 9;
+  const worst = ds.length ? ds[ds.length - 1] : 9;
+  const off = ds.filter((d) => d > 0.5).length;    // 반쯤 밀려난 사건
+  const ok = ds.length >= 20 && mid < 0.3 && off === 0;
+  console.log(`   사건 화면 중앙: ${ds.length}건 · 중앙값 ${mid.toFixed(2)} · 가장 먼 것 ${worst.toFixed(2)}`
+    + ` · 절반 넘게 밀린 사건 ${off}개 ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
 // 피날레 — 갈래가 뻗고 나서 전체 보기로 돌아오는지
 {
   const api = globalThis.window.__rescene;

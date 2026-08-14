@@ -2560,7 +2560,7 @@ body.is-playing .play-strip { pointer-events: auto; }
 /* 곡이 흐르는 동안 — 화면을 남김없이 덮되 아주 옅게. 시간선을 읽는 데 걸리면 안 된다 */
 .bgm-stage.is-space {
   z-index: 1;
-  opacity: 0.05;
+  opacity: 0.01;
 }
 /* 소리가 멈추면 다시 또렷해진다 — 볼 수 있으라고 깔아 둔 화면이니까 */
 .bgm-stage.is-space.is-held { opacity: 0.82; }
