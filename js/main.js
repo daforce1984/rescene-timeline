@@ -3934,6 +3934,14 @@ const camUp = new THREE.Vector3();
 const mvEnd = new THREE.Vector3();
 const playTgt = new THREE.Vector3();
 const playPos = new THREE.Vector3();
+/**
+ * 재생 중 카메라는 목표에서 늘 이 자리에 선다. 거리가 고정이므로 화면에 담기는
+ * 폭도 계산으로 나온다 — 「얼마나 앞서 볼지」를 world 단위가 아니라 화면 비율로
+ * 잡을 수 있다. 가로 화면에서 알맞던 150 이 세로로 긴 손전화에서는 화면 절반을
+ * 넘어서, 진행선이 오른쪽으로 밀려났다 돌아오는 것처럼 보였다.
+ */
+const PLAY_OFF = new THREE.Vector3(-120, 235, 940);
+const PLAY_DIST = PLAY_OFF.length();
 
 /* ==================================================================
  * 재생 연출 — 데뷔 지점에서 출발해 시간선이 자라나며 사건이 하나씩 켜진다.
@@ -5588,7 +5596,23 @@ function tick() {
       // 오가는 곡선은 스포트라이트(focusK)와 같은 것을 쓴다. 그래서 사건이 밝아지는
       // 속도로 다가가고, 잦아드는 속도로 본류에 돌아온다 — 따로 어긋나 보이지 않는다.
       const fp = pointAtX(MAIN, clamp(play.front, TIME.xTailHead, TIME.xTailEnd)).point;
-      const aimX = fp.x + 150;   // 진행 방향을 조금 앞서 본다
+      // 진행 방향을 조금 앞서 본다. 다만 얼마나 앞서 볼지는 **화면에 담기는 폭의 비율**로
+      // 잡는다 — 고정된 world 값을 쓰면 세로로 긴 손전화에서 화면 절반을 넘어 버린다.
+      const halfW = PLAY_DIST * Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
+      // 그리고 **다음 사건까지 남은 거리를 미리 보고** 그만큼만 편다.
+      // 사건 사이 한가운데서 가장 넓게 펴고 사건에 닿는 순간 0 으로 거둔다 —
+      // 소개가 시작될 때 카메라가 뒤로 물러섰다 나올 일이 없다.
+      // 거두는 속도가 진행 속도보다 빠르면 그 자체가 「뒤로 감」이 되므로,
+      // 사건 간격의 1/3.2 을 넘지 않게 묶는다. 사건이 촘촘한 구간에서는 알아서 0 에 가까워진다.
+      const nextCue = PLAY_CUES[play.next];
+      const gap = Math.max((nextCue ? nextCue.x : PLAY_TO) - play.lastCueX, 1);
+      const leadMax = Math.min(halfW * 0.19, gap / 3.2, 170);
+      const half = gap * 0.5;
+      const toNext = clamp(((nextCue ? nextCue.x : PLAY_TO) - play.front) / half, 0, 1);
+      const fromLast = clamp((play.front - play.lastCueX) / half, 0, 1);
+      const leadK = Math.min(toNext, fromLast);
+      const lead = leadMax * leadK * leadK * (3 - 2 * leadK);
+      const aimX = fp.x + lead;
       const aimY = fp.y + 40;
       playTgt.set(aimX, aimY, 0);
       if (focusK > 0.001) {
@@ -5597,7 +5621,7 @@ function tick() {
         // 화면 높이의 한 자락만큼 올려 두면 사건·이름표가 한 덩어리로 가운데 온다.
         playTgt.y += focusK * 62;
       }
-      playPos.set(playTgt.x - 120, playTgt.y + 235, playTgt.z + 940);
+      playPos.copy(playTgt).add(PLAY_OFF);
       // 빅뱅 순간엔 카메라가 잠깐 흔들린다
       const sh = bangShake();
       if (sh > 0) {

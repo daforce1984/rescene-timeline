@@ -199,6 +199,7 @@ const rolled = (el) => {
 };
 const prog = []; let bgmPeak = 0; let bangPeak = 0; let bangAt = -1; let nexusAt = -1;
 const cueCenter = new Map();   // 사건 → 화면 한가운데에 가장 가까웠던 거리
+let lastTgtX = null, backSum = 0, backMax = 0;   // 카메라 목표가 뒤로 물러난 양
 // 하네스의 OrbitControls 는 껍데기라 update() 가 카메라를 target 쪽으로 돌려 주지 않는다.
 // 화면 좌표를 재려면 같은 자리에 세운 사본을 직접 target 쪽으로 돌려서 본다.
 const probeCam = globalThis.window.__rescene.camera.clone();
@@ -248,6 +249,15 @@ try {
         headTexts.add(api.headDate.textContent);
         headXs.push(api.headAnchor.position.x);
       }
+      // 카메라가 앞뒤로 튀지 않는가 — 목표점이 뒤로 물러난 양을 모은다
+      if (api.play.active) {
+        const tx = api.controls.target.x;
+        if (lastTgtX !== null) {
+          const d = tx - lastTgtX;
+          if (d < 0) { backSum += -d; backMax = Math.max(backMax, -d); }
+        }
+        lastTgtX = tx;
+      }
       // 사건을 소개하는 동안에는 그 사건이 화면 한가운데로 와야 한다.
       // 사건마다 「가운데에 가장 가까웠던 순간」을 화면 좌표(NDC, 0=정중앙 1=가장자리)로 잰다.
       if (api.play.active && api.play.hold > 0 && (api.play.focus >= 0 || api.play.focusMv >= 0)) {
@@ -282,6 +292,13 @@ console.log(`   소개된 사건 ${shown}개 · 총 ${(frames0 * 0.05).toFixed(0
   const ok = ds.length >= 20 && mid < 0.3 && off === 0;
   console.log(`   사건 화면 중앙: ${ds.length}건 · 중앙값 ${mid.toFixed(2)} · 가장 먼 것 ${worst.toFixed(2)}`
     + ` · 절반 넘게 밀린 사건 ${off}개 ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+// 카메라가 앞뒤로 튀면 안 된다. 앞서 보는 양을 고정값(150)으로 두던 동안엔
+// 사건마다 그만큼 물러났다 나와서 되돌아간 거리가 6500 을 넘었다.
+{
+  const ok = backSum < 1200 && backMax < 40;
+  console.log(`   카메라 되돌아감(가로): 총 ${backSum.toFixed(0)} · 한 번에 최대 ${backMax.toFixed(1)} ${ok ? '✅' : '❌'}`);
   if (!ok) errs++;
 }
 // 피날레 — 갈래가 뻗고 나서 전체 보기로 돌아오는지
@@ -966,6 +983,41 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   console.log(`   좁은 화면: 버튼 줄 접힘 ${navWrap && navFit ? '✅' : '❌'} · 노치 여백 ${safe ? '✅' : '❌'}`
     + ` · 물음 버튼 세로 ${askCol ? '✅' : '❌'} · 손가락 크기 44px ${tap ? '✅' : '❌'}`);
   if (!navWrap || !navFit || !safe || !askCol || !tap) errs++;
+}
+
+// 세로로 긴 손전화에서 카메라 — 앞서 보는 양이 화면 폭에 맞게 줄고, 앞뒤로 안 튀어야 한다.
+// 고정된 world 값(150)을 쓰던 동안엔 화면 반폭(≈210)의 71% 를 앞서 봐서,
+// 진행선이 오른쪽으로 밀려났다 사건마다 되돌아오는 것처럼 보였다.
+{
+  const api = globalThis.window.__rescene;
+  const cam = api.camera;
+  const wasAspect = cam.aspect;
+  if (api.play.active) { clickOn('btn-play'); step(4); }
+  cam.aspect = 390 / 844;                       // 세로로 긴 손전화
+  cam.updateProjectionMatrix();
+  const halfW = Math.hypot(120, 235, 940) * Math.tan((cam.fov * Math.PI) / 360) * cam.aspect;
+  clickOn('btn-play');
+  step(8);
+  let last = null, back = 0, backOne = 0, lead = 0, n = 0;
+  for (let k = 0; k < 1200 && api.play.active; k++) {
+    step(1);
+    // 첫 150프레임은 전체 보기에서 재생 자리로 날아오는 구간이라 뺀다
+    if (k < 150) continue;
+    n++;
+    const tx = api.controls.target.x;
+    if (last !== null) { const d = tx - last; if (d < 0) { back += -d; backOne = Math.max(backOne, -d); } }
+    last = tx;
+    // 앞서 보는 폭은 사건을 비추지 않는 동안에만 잰다 (비출 땐 사건 자리로 옮겨 가므로)
+    if (api.play.hold <= 0) lead = Math.max(lead, tx - api.play.front);
+  }
+  if (api.play.active) { clickOn('btn-play'); step(4); }
+  cam.aspect = wasAspect;
+  cam.updateProjectionMatrix();
+  const leadPct = lead / halfW;
+  const ok = n > 400 && leadPct < 0.25 && back < 60 && backOne < halfW * 0.1;
+  console.log(`   세로 화면 카메라: ${n}프레임 · 앞서 보는 폭 ${lead.toFixed(0)} / 화면 반폭 ${halfW.toFixed(0)}`
+    + ` = ${(leadPct * 100).toFixed(0)}% · 뒤로 물러남 총 ${back.toFixed(0)} · 한 번에 최대 ${backOne.toFixed(1)} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
 }
 
 // 「소리 없이」 길 — 유튜브를 아예 안 문다. 나중에 🔊 를 누르면 그때 문다.
