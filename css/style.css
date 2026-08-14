@@ -138,14 +138,14 @@ body.is-ready .hud { opacity: 1; transform: none; }
   margin-left: 6px;
 }
 
+/* 한 낱말만 남았으므로 자간을 벌려 표식처럼 읽히게 한다 */
 .brand-sub {
   margin: 5px 0 0;
   font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.01em;
-  color: rgba(255, 175, 100, 0.72);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  color: rgba(255, 175, 100, 0.6);
 }
-.brand-sub b { color: var(--amber-hi); font-weight: 600; }
 .dim { color: rgba(255, 200, 150, 0.34); }
 
 .brand-meta {
@@ -2533,8 +2533,8 @@ body.is-playing .play-strip { pointer-events: auto; }
 /* === 배경음 화면 ====================================================
    배경음은 공식 MV 다. 유튜브 약관상 플레이어를 숨기거나 가릴 수 없어서
    (최소 200×200) 처음엔 우상단에 작은 모니터로 세운다.
-   그리고 **광고가 끝나 곡이 실제로 시작되면 그 화면이 우주 배경으로 펼쳐진다.**
-   가리는 게 아니라 반대로 화면 전체만 해지는 셈이라 약관과도 어긋나지 않는다.
+   그리고 **광고가 끝나 곡이 실제로 시작되면 그 화면이 아래 소개 띠 자리로 내려앉는다.**
+   재생 중에 날짜와 사건이 올라오는 그 칸 바탕에 MV 가 아주 옅게 깔린다.
 
    화면(#bgm-frame)은 DOM 상 늘 #bgm-stage 안에 있고, **자리(사각형)만** JS 가
    계산해서 넘겨 준다 — iframe 을 DOM 에서 옮기면 유튜브가 처음부터 다시 물기 때문.
@@ -2543,27 +2543,30 @@ body.is-playing .play-strip { pointer-events: auto; }
 .bgm-stage {
   position: absolute;
   inset: 0;
-  /* 모니터일 땐 카드 바탕 위(6), 우주로 내려앉으면 라벨 아래(1) */
+  /* 모니터일 땐 카드 바탕 위(6), 띠로 내려앉으면 띠 바탕 위(7) */
   z-index: 6;
   pointer-events: none;
   overflow: hidden;
   opacity: 0;
-  /* 우주에 비친 것처럼 — screen 은 검은 바탕 위에서 더하기로 얹히므로
-     별과 주황 시간선을 덮지 않고 그 사이에 스며든다 (덮으면 시간선이 흐려진다).
-     모니터일 때도 똑같이 걸어 둔다. 우주로 내려앉는 순간에만 켜면 그 한 프레임이
+  /* 비친 것처럼 — screen 은 검은 바탕 위에서 더하기로 얹히므로
+     띠의 글자를 덮지 않고 그 사이에 스며든다 (덮으면 글자가 흐려진다).
+     모니터일 때도 똑같이 걸어 둔다. 띠로 내려앉는 순간에만 켜면 그 한 프레임이
      불투명하게 확 밝아졌다 잦아들어서 — 번쩍인다. 모니터 바탕은 어차피 검정이라
      screen 을 걸어도 화면은 그대로 보인다. */
   mix-blend-mode: screen;
   transition: opacity 0.9s ease;
 }
 .bgm-stage.is-on { opacity: 1; }
-/* 곡이 흐르는 동안 — 화면을 남김없이 덮되 아주 옅게. 시간선을 읽는 데 걸리면 안 된다 */
+/* 곡이 흐르는 동안 — 화면 아래 소개 띠 자리에만 아주 옅게 깔린다.
+   소개 띠(z 6)의 바탕은 거의 불투명해서 그 아래로 들어가면 아예 안 보인다.
+   그래서 띠 위에 얹되, 2% 라 글자를 읽는 데는 걸리지 않는다. */
 .bgm-stage.is-space {
-  z-index: 1;
-  opacity: 0.01;
+  z-index: 7;
+  opacity: 0.02;
 }
-/* 소리가 멈추면 다시 또렷해진다 — 볼 수 있으라고 깔아 둔 화면이니까 */
-.bgm-stage.is-space.is-held { opacity: 0.82; }
+/* 소리가 멈추면 다시 또렷해진다 — 볼 수 있으라고 깔아 둔 화면이니까.
+   다만 글자 위에 얹히므로 배경일 때만큼 진하게는 못 올린다. */
+.bgm-stage.is-space.is-held { opacity: 0.45; }
 
 .bgmp-frame {
   position: absolute;
@@ -2584,13 +2587,13 @@ body.is-playing .play-strip { pointer-events: auto; }
     border-radius 0.8s ease;
 }
 .bgmp-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
-/* 우주에서는 화면 끝까지 덮는다. 다만 네 귀퉁이만 살짝 눌러 주면 붙여 놓은 네모가 아니라
-   공간에 비친 것처럼 보인다 — 투명까지는 안 간다(그러면 덮은 게 아니게 된다). */
+/* 띠에 깔릴 때는 좌우 끝을 알파로 풀어 준다 — 그래야 붙여 놓은 네모가 아니라
+   띠 안에 스며든 것으로 보인다. 위아래는 어차피 띠 밖으로 잘려 나간다. */
 .bgm-stage.is-space .bgmp-frame {
   border-radius: 0;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(140% 118% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.66) 100%);
-  mask-image: radial-gradient(140% 118% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.66) 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
 }
 
 /* --- 우상단 모니터 카드 --------------------------------------------- */
@@ -2621,7 +2624,7 @@ body.is-playing .play-strip { pointer-events: auto; }
   transition: opacity 0.5s ease;
 }
 .bgm-player.is-on { opacity: 1; pointer-events: auto; }
-/* 화면이 우주로 내려가면 카드에는 표기줄만 남는다 (자리는 접힌다) */
+/* 화면이 띠로 내려가면 카드에는 표기줄만 남는다 (자리는 접힌다) */
 .bgm-player.is-space { width: auto; max-width: min(72vw, 300px); }
 
 /* 화면이 앉을 자리 — 크기를 여기서 재서 #bgm-frame 에 그대로 넘긴다 */
@@ -2949,7 +2952,6 @@ body.is-playing .play-strip { pointer-events: auto; }
   .brand h1 { font-size: 16px; letter-spacing: 0.1em; }
   .brand h1 em { font-size: 11px; margin-left: 4px; }
   .brand-sub { font-size: 9px; margin-top: 3px; }
-  .brand-sub .dim { display: none; }
 
   /* 버튼 줄 — 가운데 정렬을 버리고 화면 폭에 맞춰 접는다.
      .hud / body.is-ready 쪽 transform 을 눌러야 해서 선택자를 같이 적는다 */
@@ -2985,7 +2987,7 @@ body.is-playing .play-strip { pointer-events: auto; }
   .mvgal { padding: 20px 10px; }
   .mvgal-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 
-  /* 배경음 모니터 — 우주로 내려간 뒤에는 표기줄만 남으므로 더 접는다 */
+  /* 배경음 모니터 — 띠로 내려간 뒤에는 표기줄만 남으므로 더 접는다 */
   .bgm-player { top: 104px; right: 10px; width: 208px; }
   .bgmp-slot { width: 200px; }   /* 약관 최소치 200×200 */
   .bgm-player.is-space { max-width: min(66vw, 230px); padding: 5px 8px 6px; }

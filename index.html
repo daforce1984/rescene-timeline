@@ -40,7 +40,7 @@
 
     <!-- 배경음 영상이 내려앉는 자리.
          광고가 끝나고 곡이 실제로 시작되면, 우상단 모니터에 있던 화면이
-         여기로 펼쳐지며 우주 배경으로 깔린다 (영상만 — 테두리도 글자도 안 따라온다).
+         화면 아래 소개 띠 자리로 내려앉는다 (영상만 — 테두리도 글자도 안 따라온다).
          DOM 에서 iframe 을 옮기면 유튜브가 처음부터 다시 물기 때문에,
          화면(#bgm-frame)은 처음부터 여기 있고 **자리만** 옮겨 다닌다. -->
     <div id="bgm-stage" class="bgm-stage" aria-hidden="true">
@@ -62,7 +62,10 @@
         <span class="brand-mark" aria-hidden="true"></span>
         <div class="brand-text">
           <h1>RESCENE <em>리센느</em></h1>
-          <p class="brand-sub">SACRED TIMELINE — <b>2024 활동기 → 2026 역주행</b> <span class="dim">( 2026.03.20 분기 )</span></p>
+          <!-- 아랫줄은 이름표 한 줄로 끝낸다. 연도·분기 날짜는 어차피 화면 아래
+               큰 시계와 스크러버가 계속 말해 주고 있어서, 여기까지 겹쳐 적으면
+               좁은 화면에서 두세 줄로 늘어나기만 했다. -->
+          <p class="brand-sub">TIMELINE</p>
         </div>
       </div>
       <dl class="brand-meta">
@@ -251,7 +254,7 @@
           <h2 id="ask-title">배경음을 틀까요?</h2>
           <p>공식 MV <b>「LOVE ATTACK」</b> 을 유튜브로 그대로 틉니다.
             광고가 먼저 붙을 수 있는데, <b>광고가 끝나고 곡이 시작되면</b> 그때 시간선이 자라기 시작합니다.
-            영상은 우주 배경으로 옅게 깔립니다.</p>
+            영상은 화면 아래 소개 자리에 아주 옅게 깔립니다.</p>
           <div class="ask-btns">
             <button id="ask-yes" class="ask-btn is-yes" type="button">소리와 함께</button>
             <button id="ask-no" class="ask-btn" type="button">소리 없이</button>

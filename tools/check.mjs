@@ -881,33 +881,30 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
 }
 
 
-// 광고가 끝나면 화면이 우주로 내려앉는다 — 「영상만」, 투명하게, 라벨 밑으로
+// 광고가 끝나면 화면이 아래 소개 띠 자리로 내려앉는다 — 「영상만」, 아주 옅게
 {
   const api = globalThis.window.__rescene;
   const st = api.bgmStage;
   const card = byIdEl('bgm-player');
   const frame = byIdEl('bgm-frame');
-  const W = globalThis.window.innerWidth;
-  const H = globalThis.window.innerHeight;
+  const band = byIdEl('play-strip').getBoundingClientRect();
 
   st.set(true);
   const r = st.rect();
-  const covers = r.w >= W - 0.5 && r.h >= H - 0.5;              // 화면을 덮는다
-  const ratio = Math.abs(r.w / r.h - 16 / 9) < 0.01;            // 찌그러지지 않는다
-  // 세로로 긴 손전화에서도 남김없이 덮는다 (cover)
-  globalThis.window.innerWidth = 390;
-  globalThis.window.innerHeight = 844;
-  const pr = st.rect();
-  const phone = pr.w >= 390 && pr.h >= 844 && Math.abs(pr.w / pr.h - 16 / 9) < 0.01
-    && pr.x <= 0 && pr.y <= 0;
-  globalThis.window.innerWidth = W;
-  globalThis.window.innerHeight = H;
+  // 띠를 남김없이 덮되 16:9 는 지키고, 띠 한가운데에 놓인다
+  const covers = r.w >= band.width - 0.5 && r.h >= band.height - 0.5;
+  const ratio = Math.abs(r.w / r.h - 16 / 9) < 0.01;
+  const onBand = Math.abs((r.x + r.w / 2) - (band.left + band.width / 2)) < 1
+    && Math.abs((r.y + r.h / 2) - (band.top + band.height / 2)) < 1;
+  // 띠 밖으로 넘친 부분은 잘라 낸다 (안 자르면 화면 전체로 번진다)
+  const clipped = /^inset\(/.test(st.el.style.clipPath || '');
   const marked = st.el._classes.has('is-space') && card._classes.has('is-space');
   const moved = frame.style.width === `${Math.round(r.w)}px` && frame.style.height === `${Math.round(r.h)}px`;
   st.set(false);
-  const back = !st.space && !st.el._classes.has('is-space') && !card._classes.has('is-space');
+  const back = !st.space && !st.el._classes.has('is-space') && !card._classes.has('is-space')
+    && !(st.el.style.clipPath || '');
 
-  // 투명도 · 겹치는 순서 (라벨 z-index 2 보다 아래여야 시간선이 안 묻힌다)
+  // 투명도 · 겹치는 순서
   const sp = /\.bgm-stage\.is-space \{([^}]*)\}/.exec(CSS);
   const op = sp && /opacity:\s*([\d.]+)/.exec(sp[1]);
   const seeThru = op && +op[1] > 0 && +op[1] <= 0.25;
@@ -923,8 +920,10 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const base = /\.bgm-stage \{([^}]*)\}/.exec(CSS);
   const blend = !!(base && /mix-blend-mode:\s*screen/.test(base[1]))
     && !(sp && /mix-blend-mode:/.test(sp[1]));
+  // 소개 띠(.play-strip) 바탕은 거의 불투명하다 — 그 아래로 들어가면 아예 안 보인다
+  const stz = /\.play-strip \{[^}]*z-index:\s*(\d+)/.exec(CSS);
   const zi = sp && /z-index:\s*(\d+)/.exec(sp[1]);
-  const under = zi && +zi[1] < 2;
+  const above = zi && stz && +zi[1] > +stz[1];
   // 「영상만」 — 화면(#bgm-frame)은 카드 밖(#bgm-stage) 에 있어야 테두리·글자가 안 따라온다.
   // 겸사겸사 DOM 에서 iframe 을 옮겨 붙일 일도 없어진다 (옮기면 유튜브가 다시 문다).
   const html = fs.readFileSync(path.join(HERE, '..', 'index.html'), 'utf8');
@@ -939,15 +938,15 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const hostOk = !!mount && /getElementById\('bgm-yt'\)/.test(mount[0]) && !/'bgm-frame'/.test(mount[0]);
   const nested = /<div id="bgm-frame"[^>]*>[\s\S]{0,400}?<div id="bgm-yt">/.test(html);
 
-  console.log(`   우주 배경: ${Math.round(r.w)}×${Math.round(r.h)} 화면 덮음 ${covers && ratio ? '✅' : '❌'}`
-    + ` · 세로(390×844) ${Math.round(pr.w)}×${Math.round(pr.h)} 덮음 ${phone ? '✅' : '❌'}`
+  console.log(`   소개 띠 영상: ${Math.round(r.w)}×${Math.round(r.h)} 로 띠(${Math.round(band.width)}×${Math.round(band.height)}) 덮음 ${covers && ratio && onBand ? '✅' : '❌'}`
+    + ` · 띠 밖 잘라냄 ${clipped ? '✅' : '❌'}`
     + ` · 투명도 ${op ? op[1] : '?'} ${seeThru && blend ? '✅ 옅게 비침' : '❌'}`
     + ` · 멈추면 ${hop ? hop[1] : '?'} ${heldOn && heldOff && heldUp ? '✅ 또렷해짐' : '❌'}`
-    + ` · 라벨 아래 ${under ? '✅' : '❌'} · 영상만 ${onlyVideo ? '✅' : '❌'}`
+    + ` · 띠 바탕 위 ${above ? '✅' : '❌'} · 영상만 ${onlyVideo ? '✅' : '❌'}`
     + ` · 자리 옮김 ${marked && moved ? '✅' : '❌'} · 되돌아옴 ${back ? '✅' : '❌'}`
     + ` · 유튜브가 갈아 끼울 칸 따로 ${hostOk && nested ? '✅' : '❌ 자리 잡는 칸이 떨어져 나감'}`);
-  if (!covers || !ratio || !phone || !seeThru || !blend || !heldOn || !heldOff || !heldUp
-    || !under || !onlyVideo || !marked || !moved || !back || !stageHtml || !hostOk || !nested) errs++;
+  if (!covers || !ratio || !onBand || !clipped || !seeThru || !blend || !heldOn || !heldOff || !heldUp
+    || !above || !onlyVideo || !marked || !moved || !back || !stageHtml || !hostOk || !nested) errs++;
 }
 
 // 모바일에서 번쩍이던 것들 — 다시 들어오지 않게 막아 둔다

@@ -4015,6 +4015,7 @@ const bgmAlbum = bgmView && bgmView.querySelector('.bgmp-meta em');
 const bgmStage = document.getElementById('bgm-stage');
 const bgmFrame = document.getElementById('bgm-frame');
 const bgmSlot = document.getElementById('bgm-slot');
+const bgmBand = document.getElementById('play-strip');   // 영상이 깔릴 자리 = 아래 소개 띠
 let ytPlayer = null;
 let ytReady = false;
 
@@ -4172,22 +4173,34 @@ function bgmMount() {
  * ------------------------------------------------------------------ */
 let bgmSpace = false;
 
+/**
+ * 영상이 깔릴 칸 = 화면 아래 소개 띠. 재생 중에는 여기에 날짜와 사건이 올라오고,
+ * 그 바탕 자리에 MV 가 깔린다. 띠가 접혀 있는 화면(가로로 눕힌 손전화)에서는
+ * 아래 3분의 1을 그 자리로 본다.
+ */
+function bgmBandRect() {
+  const W = Math.max(1, window.innerWidth);
+  const H = Math.max(1, window.innerHeight);
+  const r = bgmBand && bgmBand.getBoundingClientRect ? bgmBand.getBoundingClientRect() : null;
+  if (r && r.width > 1 && r.height > 1) return { x: r.left, y: r.top, w: r.width, h: r.height };
+  return { x: 0, y: H * 0.62, w: W, h: H * 0.38 };
+}
+
 /** 지금 화면이 앉아야 할 사각형 */
 function bgmStageRect() {
   const W = Math.max(1, window.innerWidth);
-  const H = Math.max(1, window.innerHeight);
   if (!bgmSpace) {
     // 카드 안에 비워 둔 자리를 그대로 덮는다
     const r = bgmSlot && bgmSlot.getBoundingClientRect ? bgmSlot.getBoundingClientRect() : null;
     if (r && r.width > 1 && r.height > 1) return { x: r.left, y: r.top, w: r.width, h: r.height };
     return { x: W - 268, y: 160, w: 242, h: 200 };
   }
-  // 우주 — 화면을 남김없이 덮는다 (cover). 16:9 는 그대로 지키고 넘치는 쪽만 잘라 낸다 —
-  // 찌그러뜨리면 사람 얼굴에서 먼저 티가 나기 때문. 세로로 긴 손전화에서는 좌우가 크게
-  // 잘리는데, MV 는 가운데에 사람이 서므로 배경으로는 그 편이 낫다.
-  const w = Math.max(W, H * (16 / 9));
-  const h = Math.max(H, W * (9 / 16));
-  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
+  // 소개 띠를 남김없이 덮는다 (cover). 16:9 는 그대로 지키고 넘치는 쪽만 잘라 낸다 —
+  // 찌그러뜨리면 사람 얼굴에서 먼저 티가 난다. 넘친 부분은 아래 clip 이 잘라 준다.
+  const b = bgmBandRect();
+  const w = Math.max(b.w, b.h * (16 / 9));
+  const h = Math.max(b.h, b.w * (9 / 16));
+  return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
 }
 function bgmLayout() {
   if (!bgmFrame || !bgmFrame.style) return;
@@ -4196,8 +4209,17 @@ function bgmLayout() {
   bgmFrame.style.top = `${Math.round(r.y)}px`;
   bgmFrame.style.width = `${Math.round(r.w)}px`;
   bgmFrame.style.height = `${Math.round(r.h)}px`;
+  // 띠 밖으로 넘친 부분을 잘라 낸다 — 영상은 16:9 를 지키느라 띠보다 크게 잡히므로
+  if (bgmStage && bgmStage.style) {
+    if (!bgmSpace) { bgmStage.style.clipPath = ''; return; }
+    const b = bgmBandRect();
+    const W = Math.max(1, window.innerWidth);
+    const H = Math.max(1, window.innerHeight);
+    bgmStage.style.clipPath = `inset(${Math.round(b.y)}px ${Math.round(W - b.x - b.w)}px`
+      + ` ${Math.round(H - b.y - b.h)}px ${Math.round(b.x)}px)`;
+  }
 }
-/** 우주로 내려앉히기 / 모니터로 되돌리기 */
+/** 아래 소개 띠로 내려앉히기 / 모니터로 되돌리기 */
 function setBgmStage(on) {
   const want = !!on;
   if (bgmSpace === want) return;
@@ -4301,7 +4323,7 @@ function bgmUpdate(dt) {
   if ((bgmFade <= 0.001 || bgmDuckK <= 0.001) && !bgm.paused) bgm.pause();
   if (ytReady && ytPlayer) { try { ytPlayer.setVolume(Math.round(bgm.volume * 100)); } catch {} }
 
-  // 광고가 끝나고 곡이 실제로 흐르기 시작하면 그때 화면을 우주로 내려앉힌다.
+  // 광고가 끝나고 곡이 실제로 흐르기 시작하면 그때 화면을 아래 소개 띠로 내려앉힌다.
   // 매 프레임 물어볼 일은 아니라 4분의 1초에 한 번만 본다.
   ytPoll -= dt;
   if (ytPoll <= 0) {
@@ -4311,7 +4333,7 @@ function bgmUpdate(dt) {
     // 멈춰 있으면 자리는 그대로 두고 또렷해지기만 한다 (돌아오면 다시 옅어진다)
     else if (st === 'pause') { ytMiss = 0; setBgmHeld(true); }
     // 곡을 갈아 끼워 광고가 또 붙으면 화면을 도로 모니터로 올린다 —
-    // 광고를 우주 배경으로 깔아 둘 이유는 없다. 다만 잠깐 끊긴 걸 광고로 오해해
+    // 광고를 소개 띠에 깔아 둘 이유는 없다. 다만 잠깐 끊긴 걸 광고로 오해해
     // 화면이 왔다 갔다 하면 안 되니, 여섯 번(1.5초) 연달아 아닐 때만.
     else if (++ytMiss > 6) { setBgmStage(false); setBgmHeld(false); }
   }
