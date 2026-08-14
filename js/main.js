@@ -4259,65 +4259,71 @@ function bgmBandRect() {
 }
 
 /**
- * 영상이 **실제로** 깔리는 칸 — 패널에서 바탕이 짙게 깔린 구간, 즉 가로 선 아래만.
- * 패널 상자에는 위쪽에 그러데이션이 배경으로 스며드는 구간(데스크톱 148px)이 함께 들어 있는데,
- * 거기는 바탕이 투명해서 영상만 남는다. 그 구간까지 깔았더니 패널 위로 영상이
- * 삐져나온 것처럼 보였다. 가로 선을 영상의 윗변으로 삼는다.
+ * 무대(#bgm-stage)가 차지하는 상자.
+ *
+ * 깔릴 때는 **패널과 똑같이 아래에 붙이고 키만 준다.** 화면 좌표(top/clip)로 오려 내지
+ * 않는다 — iOS 사파리는 주소창·툴바 때문에 `window.innerHeight` 와 position:fixed 요소의
+ * 기준 높이가 어긋나서, 그 좌표로 자르면 영상이 패널 위로 뚫고 나오고 아래엔 여백이 남는다.
+ * 여기서 쓰는 값은 **패널 상자와 가로 선의 차이**뿐이라 그런 어긋남을 안 탄다.
+ * 넘치는 부분은 무대의 overflow 가 자른다 (계산이 아니라 배치가 자르는 것).
  */
-function bgmVideoRect() {
+function bgmStageBox() {
+  const W = Math.max(1, window.innerWidth);
+  const H = Math.max(1, window.innerHeight);
+  if (!bgmSpace) return { w: W, h: H };
   const b = bgmBandRect();
+  // 패널 위쪽에는 배경으로 스며드는 그러데이션 구간이 함께 들어 있다(데스크톱 148 · 손전화 46).
+  // 거기는 바탕이 투명해서 영상만 남으므로, 가로 선부터를 영상의 윗변으로 삼는다.
   const r = bgmRule && bgmRule.getBoundingClientRect ? bgmRule.getBoundingClientRect() : null;
-  const top = r && r.top > b.y && r.top < b.y + b.h ? r.top : b.y;
-  return { x: b.x, y: top, w: b.w, h: Math.max(1, b.y + b.h - top) };
+  const off = r && r.top > b.y && r.top < b.y + b.h ? r.top - b.y : 0;
+  return { w: b.w, h: Math.max(1, b.h - off) };
 }
 
-/** 지금 화면이 앉아야 할 사각형 */
+/** 무대 안에서 화면(#bgm-frame)이 앉을 자리 — 무대 기준 좌표 */
 function bgmStageRect() {
-  const W = Math.max(1, window.innerWidth);
+  const box = bgmStageBox();
   if (!bgmSpace) {
-    // 카드 안에 비워 둔 자리를 그대로 덮는다
+    // 무대가 화면 전체이므로 화면 좌표가 곧 무대 좌표다. 카드에 비워 둔 자리를 그대로 덮는다.
     const r = bgmSlot && bgmSlot.getBoundingClientRect ? bgmSlot.getBoundingClientRect() : null;
     if (r && r.width > 1 && r.height > 1) return { x: r.left, y: r.top, w: r.width, h: r.height };
-    return { x: W - 268, y: 160, w: 242, h: 200 };
+    return { x: box.w - 268, y: 160, w: 242, h: 200 };
   }
-  // 그 칸을 남김없이 덮는다 (cover). 16:9 는 그대로 지키고 넘치는 쪽만 잘라 낸다 —
-  // 찌그러뜨리면 사람 얼굴에서 먼저 티가 난다. 넘친 부분은 아래 clip 이 잘라 준다.
-  const b = bgmVideoRect();
-  const w = Math.max(b.w, b.h * (16 / 9));
-  const h = Math.max(b.h, b.w * (9 / 16));
-  return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
+  // 무대를 남김없이 덮는다 (cover). 16:9 는 그대로 지키고 넘치는 쪽만 잘라 낸다 —
+  // 찌그러뜨리면 사람 얼굴에서 먼저 티가 난다.
+  const w = Math.max(box.w, box.h * (16 / 9));
+  const h = Math.max(box.h, box.w * (9 / 16));
+  return { x: (box.w - w) / 2, y: (box.h - h) / 2, w, h };
 }
 function bgmLayout() {
   // 패널 바탕은 패널 자체를 재서 높이를 맞춘다 — CSS 에 또 적어 두면 둘이 어긋난다
   if (bgmBandBg && bgmBandBg.style) bgmBandBg.style.height = `${Math.round(bgmBandRect().h)}px`;
   if (!bgmFrame || !bgmFrame.style) return;
+  const box = bgmStageBox();
+  if (bgmStage && bgmStage.style) {
+    const s = bgmStage.style;
+    // 패널과 같은 방식으로 아래에 붙인다 (패널도 bottom: 0 이다). 좌우는 CSS 의 inset: 0 그대로.
+    if (bgmSpace) { s.top = 'auto'; s.bottom = '0px'; s.height = `${Math.round(box.h)}px`; }
+    else { s.top = ''; s.bottom = ''; s.height = ''; }
+  }
   const r = bgmStageRect();
   bgmFrame.style.left = `${Math.round(r.x)}px`;
   bgmFrame.style.top = `${Math.round(r.y)}px`;
   bgmFrame.style.width = `${Math.round(r.w)}px`;
   bgmFrame.style.height = `${Math.round(r.h)}px`;
-  // 그 칸 밖으로 넘친 부분을 잘라 낸다 — 영상은 16:9 를 지키느라 칸보다 크게 잡히므로.
-  // (무대는 화면 전체 크기 그대로 둔다. 무대를 옮기면 화면이 미끄러지는 도중에 한 번 튄다)
-  if (bgmStage && bgmStage.style) {
-    if (!bgmSpace) { bgmStage.style.clipPath = ''; bgmStage.style.webkitClipPath = ''; return; }
-    const b = bgmVideoRect();
-    const W = Math.max(1, window.innerWidth);
-    const H = Math.max(1, window.innerHeight);
-    const clip = `inset(${Math.round(b.y)}px ${Math.round(W - b.x - b.w)}px`
-      + ` ${Math.round(H - b.y - b.h)}px ${Math.round(b.x)}px)`;
-    bgmStage.style.clipPath = clip;
-    bgmStage.style.webkitClipPath = clip;   // 옛 사파리
-  }
 }
-/** 아래 소개 띠로 내려앉히기 / 모니터로 되돌리기 */
+/** 아래 소개 패널로 내려앉히기 / 모니터로 되돌리기 */
 function setBgmStage(on) {
   const want = !!on;
   if (bgmSpace === want) return;
   bgmSpace = want;
   if (bgmStage) bgmStage.classList.toggle('is-space', bgmSpace);
   if (bgmView) bgmView.classList.toggle('is-space', bgmSpace);
-  // 카드 쪽 자리(빈 칸·카드 폭)는 전환 없이 바로 접힌다 — 그래야 여기서 잰 값이 최종값이다
+  // 무대 상자가 바뀌면 화면 좌표의 기준점도 같이 바뀐다.
+  // 그 사이를 미끄러뜨리면 엉뚱한 데서 출발하므로, 자리 옮기는 이 한 번은 바로 옮긴다.
+  const s = bgmFrame && bgmFrame.style;
+  if (s) s.transition = 'none';
   bgmLayout();
+  if (s) { void bgmFrame.offsetWidth; s.transition = ''; }
 }
 
 /* --- 광고가 지나갔는가 -----------------------------------------------
@@ -5899,7 +5905,7 @@ const bgmStageApi = {
   layout: bgmLayout,
   rect: () => bgmStageRect(),
   band: () => bgmBandRect(),
-  video: () => bgmVideoRect(),
+  box: () => bgmStageBox(),
   set: (v) => setBgmStage(v),
   get space() { return bgmSpace; },
 };

@@ -895,27 +895,28 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   byIdEl('play-strip')._rect = { left: 0, top: H0 - 260, width: W0, height: 260, right: W0, bottom: H0 };
   byIdEl('ps-rule')._rect = { left: 0, top: H0 - 112, width: W0, height: 1, right: W0, bottom: H0 - 111 };
   const band = st.band();
-  const vid = st.video();
 
   st.set(true);
   st.layout();
+  const box = st.box();
   const r = st.rect();
   // 영상이 깔리는 칸은 「가로 선 아래」다 — 패널 위쪽 그러데이션 구간까지 깔면
   // 거기는 바탕이 투명해서 영상만 패널 밖으로 삐져나온 것처럼 보인다
-  const ruleTop = Math.abs(vid.y - (H0 - 112)) < 1 && vid.h < band.h;
-  const covers = r.w >= vid.w - 0.5 && r.h >= vid.h - 0.5;
+  const ruleTop = Math.abs(box.h - 112) < 1 && box.h < band.h;
+  const covers = r.w >= box.w - 0.5 && r.h >= box.h - 0.5;
   const ratio = Math.abs(r.w / r.h - 16 / 9) < 0.01;
-  const onBand = Math.abs((r.x + r.w / 2) - (vid.x + vid.w / 2)) < 1
-    && Math.abs((r.y + r.h / 2) - (vid.y + vid.h / 2)) < 1;
-  // 그 칸 밖으로 넘친 부분은 잘라 낸다 (안 자르면 화면 전체로 번진다)
-  const cp = /inset\((-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\)/.exec(st.el.style.clipPath || '');
-  const clipped = !!cp && Math.abs(+cp[1] - vid.y) < 1 && Math.abs(+cp[3] - (H0 - vid.y - vid.h)) < 1
-    && /inset\(/.test(st.el.style.webkitClipPath || '');
+  const onBand = Math.abs((r.x + r.w / 2) - box.w / 2) < 1
+    && Math.abs((r.y + r.h / 2) - box.h / 2) < 1;
+  // 자르는 건 화면 좌표 계산이 아니라 **배치**가 한다 — 패널과 똑같이 아래에 붙이고 키만 준다.
+  // (iOS 는 window.innerHeight 와 fixed 요소의 기준 높이가 어긋나서 좌표로 자르면 틀어진다)
+  const clipped = st.el.style.bottom === '0px' && st.el.style.top === 'auto'
+    && Math.abs(parseFloat(st.el.style.height) - box.h) < 1
+    && !(st.el.style.clipPath || '');
   const marked = st.el._classes.has('is-space') && card._classes.has('is-space');
   const moved = frame.style.width === `${Math.round(r.w)}px` && frame.style.height === `${Math.round(r.h)}px`;
   st.set(false);
   const back = !st.space && !st.el._classes.has('is-space') && !card._classes.has('is-space')
-    && !(st.el.style.clipPath || '');
+    && !st.el.style.height && !st.el.style.bottom;
 
   // 투명도 · 겹치는 순서
   const sp = /\.bgm-stage\.is-space \{([^}]*)\}/.exec(CSS);
@@ -952,8 +953,8 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   byIdEl('play-strip')._rect = null;    // 뒤 검사들이 원래 자리로 보게 되돌린다
   byIdEl('ps-rule')._rect = null;
 
-  console.log(`   소개 패널 바탕 영상: ${Math.round(r.w)}×${Math.round(r.h)} 로 칸(${Math.round(vid.w)}×${Math.round(vid.h)}) 덮음 ${covers && ratio && onBand ? '✅' : '❌'}`
-    + ` · 가로 선 아래부터 ${ruleTop ? '✅' : '❌'} · 패널 밖 잘라냄 ${clipped ? '✅' : '❌'}`
+  console.log(`   소개 패널 바탕 영상: ${Math.round(r.w)}×${Math.round(r.h)} 로 칸(${Math.round(box.w)}×${Math.round(box.h)}) 덮음 ${covers && ratio && onBand ? '✅' : '❌'}`
+    + ` · 가로 선 아래부터 ${ruleTop ? '✅' : '❌'} · 패널에 붙여 잘라냄 ${clipped ? '✅' : '❌'}`
     + ` · 투명도 ${op ? op[1] : '?'} ${seeThru && blend ? '✅ 옅게 비침' : '❌'}`
     + ` · 바탕(${bgz ? bgz[1] : '?'}) < 영상(${zi ? zi[1] : '?'}) < 글자(${stz ? stz[1] : '?'}) ${between ? '✅' : '❌'}`
     + ` · 바탕 높이 맞음 ${bgFit ? '✅' : '❌'} · 멈추면 작은 창 ${leaves ? '✅' : '❌'}`
