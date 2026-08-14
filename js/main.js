@@ -4172,14 +4172,11 @@ function bgmStageRect() {
     if (r && r.width > 1 && r.height > 1) return { x: r.left, y: r.top, w: r.width, h: r.height };
     return { x: W - 268, y: 160, w: 242, h: 200 };
   }
-  // 우주 — 어느 쪽이든 16:9 는 지킨다 (찌그러뜨리면 사람 얼굴에서 먼저 티가 난다).
-  // 다만 세로로 긴 손전화에서 화면을 꽉 채우면 가로로 4분의 1만 남는다.
-  // 그럴 땐 폭에 맞춘 띠로 깔고 위아래는 우주로 비운다 — 배경이니 그게 낫다.
-  // 폭에 딱 맞추면 띠가 너무 얇아 존재감이 없어서 1.25 배까지만 키운다
-  // (좌우로 6% 씩 잘리는데 MV 는 가운데에 사람이 서므로 잘려 나가는 게 없다).
-  const tall = W / H < 1.15;
-  const w = tall ? W * 1.25 : Math.max(W, H * (16 / 9));
-  const h = tall ? W * 1.25 * (9 / 16) : Math.max(H, W * (9 / 16));
+  // 우주 — 화면을 남김없이 덮는다 (cover). 16:9 는 그대로 지키고 넘치는 쪽만 잘라 낸다 —
+  // 찌그러뜨리면 사람 얼굴에서 먼저 티가 나기 때문. 세로로 긴 손전화에서는 좌우가 크게
+  // 잘리는데, MV 는 가운데에 사람이 서므로 배경으로는 그 편이 낫다.
+  const w = Math.max(W, H * (16 / 9));
+  const h = Math.max(H, W * (9 / 16));
   return { x: (W - w) / 2, y: (H - h) / 2, w, h };
 }
 function bgmLayout() {
@@ -4210,13 +4207,28 @@ function setBgmStage(on) {
 const AD_MIN_RUN = 75;
 let ytPoll = 0;          // 다음에 물어볼 때까지 남은 시간
 let ytMiss = 0;          // 곡이 아니라고 나온 횟수 (연달아 몇 번인지)
-function ytContentLive() {
-  if (!ytReady || !ytPlayer) return false;
+/** 지금 유튜브에서 흐르는 것 — 'ad' 광고 · 'play' 곡 · 'pause' 멈춤 · 'none' 아직/모름 */
+function ytState() {
+  if (!ytReady || !ytPlayer) return 'none';
   try {
-    if (typeof ytPlayer.getPlayerState === 'function' && ytPlayer.getPlayerState() !== 1) return false;
+    const s = typeof ytPlayer.getPlayerState === 'function' ? ytPlayer.getPlayerState() : -1;
     const d = typeof ytPlayer.getDuration === 'function' ? ytPlayer.getDuration() : 0;
-    return d >= AD_MIN_RUN;
-  } catch { return false; }
+    if (d > 0 && d < AD_MIN_RUN) return 'ad';
+    if (s === 2) return 'pause';
+    if (s === 1 || s === 3) return 'play';   // 3 = 버퍼링 — 잠깐 끊긴 것이지 멈춘 게 아니다
+    return 'none';
+  } catch { return 'none'; }
+}
+/** 광고가 끝나고 곡이 실제로 시작됐는가 */
+const ytContentLive = () => ytState() === 'play';
+
+/** 소리가 멈춰 있는 동안에는 배경 화면을 다시 또렷하게 — 보라고 깔아 둔 화면이니까 */
+let bgmHeld = false;
+function setBgmHeld(on) {
+  const want = !!on;
+  if (bgmHeld === want) return;
+  bgmHeld = want;
+  if (bgmStage) bgmStage.classList.toggle('is-held', bgmHeld);
 }
 
 function bgmStart() {
@@ -4233,6 +4245,7 @@ function bgmStart() {
 function bgmStop() {
   bgmTarget = 0;
   setBgmStage(false);
+  setBgmHeld(false);
   if (bgmView) { bgmView.classList.remove('is-on'); bgmView.setAttribute('aria-hidden', 'true'); }
   if (bgmStage) { bgmStage.classList.remove('is-on'); bgmStage.setAttribute('aria-hidden', 'true'); }
 }
@@ -4283,11 +4296,14 @@ function bgmUpdate(dt) {
   ytPoll -= dt;
   if (ytPoll <= 0) {
     ytPoll = 0.25;
-    if (bgmTarget > 0 && ytContentLive()) { ytMiss = 0; setBgmStage(true); }
+    const st = bgmTarget > 0 ? ytState() : 'none';
+    if (st === 'play') { ytMiss = 0; setBgmStage(true); setBgmHeld(false); }
+    // 멈춰 있으면 자리는 그대로 두고 또렷해지기만 한다 (돌아오면 다시 옅어진다)
+    else if (st === 'pause') { ytMiss = 0; setBgmHeld(true); }
     // 곡을 갈아 끼워 광고가 또 붙으면 화면을 도로 모니터로 올린다 —
-    // 광고를 우주 배경으로 깔아 둘 이유는 없다. 다만 잠깐 버퍼링으로 끊긴 걸
-    // 광고로 오해해 화면이 왔다 갔다 하면 안 되니, 여섯 번(1.5초) 연달아 아닐 때만.
-    else if (++ytMiss > 6) setBgmStage(false);
+    // 광고를 우주 배경으로 깔아 둘 이유는 없다. 다만 잠깐 끊긴 걸 광고로 오해해
+    // 화면이 왔다 갔다 하면 안 되니, 여섯 번(1.5초) 연달아 아닐 때만.
+    else if (++ytMiss > 6) { setBgmStage(false); setBgmHeld(false); }
   }
   waitTick(dt);
 }
@@ -5726,7 +5742,9 @@ const bgmStageApi = {
   layout: bgmLayout,
   rect: () => bgmStageRect(),
   set: (v) => setBgmStage(v),
+  hold: (v) => setBgmHeld(v),
   get space() { return bgmSpace; },
+  get held() { return bgmHeld; },
 };
 /** 재생을 열기 전 물음 · 광고 대기 */
 const askGate = {

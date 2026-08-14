@@ -2584,10 +2584,13 @@ body.is-playing .play-strip { pointer-events: auto; }
   transition: opacity 0.9s ease;
 }
 .bgm-stage.is-on { opacity: 1; }
+/* 곡이 흐르는 동안 — 화면을 남김없이 덮되 아주 옅게. 시간선을 읽는 데 걸리면 안 된다 */
 .bgm-stage.is-space {
   z-index: 1;
-  opacity: 0.32;
+  opacity: 0.2;
 }
+/* 소리가 멈추면 다시 또렷해진다 — 볼 수 있으라고 깔아 둔 화면이니까 */
+.bgm-stage.is-space.is-held { opacity: 0.82; }
 
 .bgmp-frame {
   position: absolute;
@@ -2608,12 +2611,13 @@ body.is-playing .play-strip { pointer-events: auto; }
     border-radius 0.8s ease;
 }
 .bgmp-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
-/* 우주에서는 네모난 테두리가 보이면 안 된다 — 가장자리를 알파로 풀어 준다 */
+/* 우주에서는 화면 끝까지 덮는다. 다만 네 귀퉁이만 살짝 눌러 주면 붙여 놓은 네모가 아니라
+   공간에 비친 것처럼 보인다 — 투명까지는 안 간다(그러면 덮은 게 아니게 된다). */
 .bgm-stage.is-space .bgmp-frame {
   border-radius: 0;
   pointer-events: none;
-  -webkit-mask-image: radial-gradient(125% 108% at 50% 48%, #000 34%, rgba(0, 0, 0, 0.55) 68%, transparent 96%);
-  mask-image: radial-gradient(125% 108% at 50% 48%, #000 34%, rgba(0, 0, 0, 0.55) 68%, transparent 96%);
+  -webkit-mask-image: radial-gradient(140% 118% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.66) 100%);
+  mask-image: radial-gradient(140% 118% at 50% 50%, #000 62%, rgba(0, 0, 0, 0.66) 100%);
 }
 
 /* --- 우상단 모니터 카드 --------------------------------------------- */

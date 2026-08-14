@@ -825,12 +825,12 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const r = st.rect();
   const covers = r.w >= W - 0.5 && r.h >= H - 0.5;              // 화면을 덮는다
   const ratio = Math.abs(r.w / r.h - 16 / 9) < 0.01;            // 찌그러지지 않는다
-  // 세로로 긴 손전화 — 꽉 채우면 가로로 4분의 1만 남으므로 폭에 맞춰 띠로 깐다
+  // 세로로 긴 손전화에서도 남김없이 덮는다 (cover)
   globalThis.window.innerWidth = 390;
   globalThis.window.innerHeight = 844;
   const pr = st.rect();
-  const phone = pr.w >= 390 && pr.w <= 390 * 1.4 && pr.h < 844 * 0.6
-    && Math.abs(pr.w / pr.h - 16 / 9) < 0.01 && pr.x <= 0 && pr.y > 0;
+  const phone = pr.w >= 390 && pr.h >= 844 && Math.abs(pr.w / pr.h - 16 / 9) < 0.01
+    && pr.x <= 0 && pr.y <= 0;
   globalThis.window.innerWidth = W;
   globalThis.window.innerHeight = H;
   const marked = st.el._classes.has('is-space') && card._classes.has('is-space');
@@ -841,7 +841,15 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   // 투명도 · 겹치는 순서 (라벨 z-index 2 보다 아래여야 시간선이 안 묻힌다)
   const sp = /\.bgm-stage\.is-space \{([^}]*)\}/.exec(CSS);
   const op = sp && /opacity:\s*([\d.]+)/.exec(sp[1]);
-  const seeThru = op && +op[1] > 0 && +op[1] < 0.6;
+  const seeThru = op && +op[1] > 0 && +op[1] <= 0.25;
+  // 멈추면 다시 또렷해진다 — 흐를 땐 옅게, 멈추면 진하게
+  const hp = /\.bgm-stage\.is-space\.is-held \{([^}]*)\}/.exec(CSS);
+  const hop = hp && /opacity:\s*([\d.]+)/.exec(hp[1]);
+  st.hold(true);
+  const heldOn = st.held && st.el._classes.has('is-held');
+  st.hold(false);
+  const heldOff = !st.held && !st.el._classes.has('is-held');
+  const heldUp = hop && op && +hop[1] > +op[1] * 2 && +hop[1] <= 1;
   // 섞임은 모니터일 때부터 걸어 둔다 — 내려앉는 순간에만 켜면 그 한 프레임이 번쩍인다
   const base = /\.bgm-stage \{([^}]*)\}/.exec(CSS);
   const blend = !!(base && /mix-blend-mode:\s*screen/.test(base[1]))
@@ -856,11 +864,13 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
     && !/<div id="bgm-player"[\s\S]*?id="bgm-frame"/.test(html);
 
   console.log(`   우주 배경: ${Math.round(r.w)}×${Math.round(r.h)} 화면 덮음 ${covers && ratio ? '✅' : '❌'}`
-    + ` · 세로 화면(390×844) 띠 ${Math.round(pr.w)}×${Math.round(pr.h)} ${phone ? '✅' : '❌'}`
-    + ` · 투명도 ${op ? op[1] : '?'} ${seeThru && blend ? '✅ 비쳐 보임' : '❌'}`
+    + ` · 세로(390×844) ${Math.round(pr.w)}×${Math.round(pr.h)} 덮음 ${phone ? '✅' : '❌'}`
+    + ` · 투명도 ${op ? op[1] : '?'} ${seeThru && blend ? '✅ 옅게 비침' : '❌'}`
+    + ` · 멈추면 ${hop ? hop[1] : '?'} ${heldOn && heldOff && heldUp ? '✅ 또렷해짐' : '❌'}`
     + ` · 라벨 아래 ${under ? '✅' : '❌'} · 영상만 ${onlyVideo ? '✅' : '❌'}`
     + ` · 자리 옮김 ${marked && moved ? '✅' : '❌'} · 되돌아옴 ${back ? '✅' : '❌'}`);
-  if (!covers || !ratio || !phone || !seeThru || !blend || !under || !onlyVideo || !marked || !moved || !back || !stageHtml) errs++;
+  if (!covers || !ratio || !phone || !seeThru || !blend || !heldOn || !heldOff || !heldUp
+    || !under || !onlyVideo || !marked || !moved || !back || !stageHtml) errs++;
 }
 
 // 모바일에서 번쩍이던 것들 — 다시 들어오지 않게 막아 둔다
