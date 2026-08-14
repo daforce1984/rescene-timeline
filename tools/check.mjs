@@ -1021,6 +1021,21 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
     lines.push(`${show.label} ${n}회 · 썸네일 ${thumbs}/${n} · 열림 ${opened ? '✅' : '❌'}`
       + ` · 눌러서 재생 ${playing ? '✅' : '❌'} · 다시 눌러 닫힘 ${toggled ? '✅' : '❌'}`);
   }
+  // 좁은 화면에서는 카드 격자가 아니라 한 줄짜리 목록이어야 한다 (제목이 대여섯 줄로 접히면
+  // 카드 키가 제각각이 돼 들쭉날쭉해진다). 그리고 닫기 단추는 셋 다 모양이 잡혀 있어야 한다.
+  const nar640 = /@media \(max-width: 640px\) \{[\s\S]*?\n\}\n/.exec(CSS);
+  const listCol = nar640 ? /\.mvgal-list \{[^}]*flex-direction:\s*column/.test(nar640[0]) : false;
+  const itemRow = nar640 ? /\.mvg-item \{[^}]*flex-direction:\s*row/.test(nar640[0]) : false;
+  const clamp2 = nar640 ? /-webkit-line-clamp:\s*2/.test(nar640[0]) : false;
+  const scrolls = nar640 ? /min-height:\s*0/.test(nar640[0]) : false;
+  // 닫기 단추 — id 하나만 잡아 두면 나머지 둘이 맨 버튼으로 나온다
+  const closeAll = /\.mvgal-inner header > button \{/.test(CSS);
+  const mobileOk = listCol && itemRow && clamp2 && scrolls && closeAll;
+  if (!mobileOk) ok = false;
+  lines.push(`좁은 화면 목록 ${listCol && itemRow ? '✅ 한 줄씩' : '❌ 격자 그대로'}`
+    + ` · 제목 두 줄까지 ${clamp2 ? '✅' : '❌'} · 스스로 구름 ${scrolls ? '✅' : '❌'}`
+    + ` · 닫기 단추 셋 다 ${closeAll ? '✅' : '❌'}`);
+
   // 다른 목록을 누르면 앞의 것은 닫힌다 (겹쳐 뜨면 안 된다)
   clickOn('btn-radio');
   clickOn('btn-mv');
