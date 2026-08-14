@@ -4119,7 +4119,9 @@ const bgm = {
 /** 재생을 켜는 순간(= 사용자 제스처)에 만든다. 그래야 소리까지 자동재생이 된다. */
 function bgmMount() {
   if (ytPlayer || !bgmView) return;
-  const host = document.getElementById('bgm-frame');
+  // 유튜브 API 는 이 칸을 iframe 으로 통째로 갈아 끼운다 — 그래서 자리를 잡아 주는
+  // 바깥 칸(#bgm-frame)이 아니라 안쪽의 갈려 나갈 칸을 넘긴다.
+  const host = document.getElementById('bgm-yt');
   if (!host) return;
   const make = () => {
     const YT = window.YT;

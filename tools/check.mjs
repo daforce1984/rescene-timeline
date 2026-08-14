@@ -736,6 +736,32 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (!ok2) errs++;
 }
 
+// 사진이 동그라미 한가운데 놓이는가.
+// 크기를 사진 쪽에 따로 적어 두면 슬롯과 어긋나 한쪽으로 쏠린다 —
+// 좁은 화면에서 사진만 62px 로 줄이고 슬롯은 74px 로 둬서 실제로 그랬다.
+{
+  const fills = /\.mp-slot img \{[^}]*width:\s*100%[^}]*\}/.test(CSS)
+    && /\.mp-slot img \{[^}]*height:\s*100%[^}]*\}/.test(CSS)
+    && /\.mp-slot img \{[^}]*object-fit:\s*cover/.test(CSS);
+  const centered = /\.mp-slot \{[^}]*align-items:\s*center[^}]*justify-content:\s*center/.test(CSS);
+  // 사진 쪽에 크기를 적어 둔 규칙이 남아 있으면 안 된다
+  const stray = [];
+  const re = /(\.(?:nl-photo|pcard-photo-in|mem-photo)[^{}]*\bimg\b[^{}]*)\{([^}]*)\}/g;
+  for (let m; (m = re.exec(CSS)); ) if (/(?:^|;)\s*(?:width|height)\s*:/.test(m[2])) stray.push(m[1].trim());
+  // 슬롯 크기는 좁은 화면에서도 가로세로가 같아야 원이 된다
+  const slots = [];
+  for (let m, r = /\.mp-slot[^{}]*\{([^}]*)\}/g; (m = r.exec(CSS)); ) {
+    const w = /(?:^|;)\s*width:\s*([^;]+)/.exec(m[1]);
+    const h = /(?:^|;)\s*height:\s*([^;]+)/.exec(m[1]);
+    if (w && h && w[1].trim() !== h[1].trim()) slots.push(`${w[1].trim()}≠${h[1].trim()}`);
+  }
+  const ok = fills && centered && !stray.length && !slots.length;
+  console.log(`   사진 정렬: 슬롯을 꽉 채움 ${fills ? '✅' : '❌'} · 가운데 ${centered ? '✅' : '❌'}`
+    + ` · 사진에 따로 적은 크기 ${stray.length ? `❌ ${stray.join(', ')}` : '✅ 없음'}`
+    + ` · 슬롯 정사각 ${slots.length ? `❌ ${slots.join(', ')}` : '✅'} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
 // 구간 이름표 — 높이가 맞는지, 누르면 그 구간으로 날아가는지
 {
   const api = globalThis.window.__rescene;
@@ -862,15 +888,23 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const stageHtml = /<div id="bgm-stage"[\s\S]*?<\/div>\s*<\/div>/.exec(html);
   const onlyVideo = /<div id="bgm-stage"[\s\S]{0,300}?id="bgm-frame"/.test(html)
     && !/<div id="bgm-player"[\s\S]*?id="bgm-frame"/.test(html);
+  // 유튜브 API 는 넘겨준 칸을 iframe 으로 통째로 갈아 끼운다.
+  // 자리를 계산해 넣는 칸(#bgm-frame)을 넘기면 그게 떨어져 나가 화면이 안 커진다 —
+  // 실제로 그 버그로 영상이 우상단 모니터 크기에 머물렀다.
+  const mainSrc = fs.readFileSync(path.join(HERE, '..', 'js', 'main.js'), 'utf8');
+  const mount = /function bgmMount\(\)[\s\S]*?\n\}/.exec(mainSrc);
+  const hostOk = !!mount && /getElementById\('bgm-yt'\)/.test(mount[0]) && !/'bgm-frame'/.test(mount[0]);
+  const nested = /<div id="bgm-frame"[^>]*>[\s\S]{0,400}?<div id="bgm-yt">/.test(html);
 
   console.log(`   우주 배경: ${Math.round(r.w)}×${Math.round(r.h)} 화면 덮음 ${covers && ratio ? '✅' : '❌'}`
     + ` · 세로(390×844) ${Math.round(pr.w)}×${Math.round(pr.h)} 덮음 ${phone ? '✅' : '❌'}`
     + ` · 투명도 ${op ? op[1] : '?'} ${seeThru && blend ? '✅ 옅게 비침' : '❌'}`
     + ` · 멈추면 ${hop ? hop[1] : '?'} ${heldOn && heldOff && heldUp ? '✅ 또렷해짐' : '❌'}`
     + ` · 라벨 아래 ${under ? '✅' : '❌'} · 영상만 ${onlyVideo ? '✅' : '❌'}`
-    + ` · 자리 옮김 ${marked && moved ? '✅' : '❌'} · 되돌아옴 ${back ? '✅' : '❌'}`);
+    + ` · 자리 옮김 ${marked && moved ? '✅' : '❌'} · 되돌아옴 ${back ? '✅' : '❌'}`
+    + ` · 유튜브가 갈아 끼울 칸 따로 ${hostOk && nested ? '✅' : '❌ 자리 잡는 칸이 떨어져 나감'}`);
   if (!covers || !ratio || !phone || !seeThru || !blend || !heldOn || !heldOff || !heldUp
-    || !under || !onlyVideo || !marked || !moved || !back || !stageHtml) errs++;
+    || !under || !onlyVideo || !marked || !moved || !back || !stageHtml || !hostOk || !nested) errs++;
 }
 
 // 모바일에서 번쩍이던 것들 — 다시 들어오지 않게 막아 둔다

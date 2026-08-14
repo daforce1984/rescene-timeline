@@ -2372,13 +2372,7 @@ body.is-playing .play-strip { pointer-events: auto; }
 }
 .nl-photo i { display: flex; align-items: center; gap: 7px; font-style: normal; min-width: 0; }
 .nl-photo img {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  object-fit: cover;
-  display: block;
-  background: #150b05;
+  /* 크기는 사진이 아니라 슬롯(.mp-slot)이 정한다 — 둘이 어긋나면 원 밖으로 밀린다 */
   filter: saturate(0.55) contrast(1.06) brightness(0.92);
   transition: filter 0.3s ease;
 }
@@ -2401,7 +2395,6 @@ body.is-playing .play-strip { pointer-events: auto; }
 /* 다섯 명이 설 때는 세로로 세워 한 줄에 담는다 */
 .nl-photo.is-many { gap: 5px; }
 .nl-photo.is-many i { flex-direction: column; gap: 4px; }
-.nl-photo.is-many img { width: 30px; height: 30px; }
 .nl-photo.is-many b { font-size: 10px; text-align: center; }
 .nl-photo.is-many b em { font-size: 8.8px; }
 /* 연습생 시절이라 색이 빠져 있다가, 짚으면 살아난다 */
@@ -2424,16 +2417,7 @@ body.is-playing .play-strip { pointer-events: auto; }
   gap: 7px;
   font-style: normal;
 }
-.pcard-photo-in img {
-  width: clamp(74px, 7.4vw, 112px);
-  height: clamp(74px, 7.4vw, 112px);
-  flex: 0 0 auto;
-  border-radius: 50%;
-  object-fit: cover;
-  display: block;
-  background: #150b05;
-  filter: saturate(0.72) contrast(1.04);
-}
+.pcard-photo-in img { filter: saturate(0.72) contrast(1.04); }
 .pcard-photo-in b {
   display: block;
   text-align: center;
@@ -2453,16 +2437,12 @@ body.is-playing .play-strip { pointer-events: auto; }
 }
 /* 다섯 명이 한 줄로 설 때는 한 단 작게 */
 .pcard-photo-in.is-many { gap: clamp(6px, 0.7vw, 11px); }
-.pcard-photo-in.is-many img {
-  width: clamp(52px, 5.2vw, 78px);
-  height: clamp(52px, 5.2vw, 78px);
-}
 .pcard-photo-in.is-many b { font-size: clamp(10px, 0.85vw, 13px); }
 .pcard-photo-in.is-many b em { font-size: clamp(8px, 0.65vw, 10px); }
 @media (max-width: 900px) {
   .play-card.has-photo { gap: 12px; }
-  .pcard-photo-in img { width: 62px; height: 62px; }
-  .pcard-photo-in.is-many img { width: 44px; height: 44px; }
+  .pcard-photo-in .mp-slot { width: 62px; height: 62px; font-size: 22px; }
+  .pcard-photo-in.is-many .mp-slot { width: 44px; height: 44px; font-size: 16px; }
   .pcard-photo-in.is-many b em { display: none; }
 }
 
@@ -2491,14 +2471,7 @@ body.is-playing .play-strip { pointer-events: auto; }
 
 .mem-head { display: flex; align-items: center; gap: 13px; }
 .mem-photo { flex: 0 0 auto; }
-.mem-photo img {
-  width: 66px;
-  height: 66px;
-  border-radius: 50%;
-  object-fit: cover;
-  display: block;
-  background: #150b05;
-}
+
 .mem-id { min-width: 0; }
 .mem-name {
   display: block;
@@ -2881,6 +2854,8 @@ body.is-playing .play-strip { pointer-events: auto; }
 .mp-slot {
   position: relative;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: 0 0 auto;
   /* 유튜브 프레임의 검은 띠를 원 밖으로 밀어내려면 슬롯이 잘라 줘야 한다.
      테두리 링·그림자는 그래서 사진이 아니라 이 슬롯에 건다(안 그러면 잘려 나간다). */
@@ -2891,6 +2866,18 @@ body.is-playing .play-strip { pointer-events: auto; }
    프레임은 4:3(480×360) 안에 16:9 영상이 든 모양이라 위아래에 45px 씩 검은 띠가 있다.
    360/270 = 1.3334 배로 키워 띠를 원 밖으로 밀어낸다. */
 .mp-slot img.is-yt { transform: scale(1.3334); }
+/* 사진은 언제나 슬롯을 꽉 채운다.
+   크기를 사진 쪽에 따로 적어 두면 슬롯과 어긋나 원 한쪽으로 쏠린다
+   (좁은 화면에서 사진만 줄이고 슬롯은 그대로 둬서 실제로 그랬다). */
+.mp-slot img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  background: #150b05;
+}
 .mp-slot.is-gone img { display: none; }
 .mp-slot.is-gone::after {
   content: attr(data-ini);

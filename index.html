@@ -44,7 +44,12 @@
          DOM 에서 iframe 을 옮기면 유튜브가 처음부터 다시 물기 때문에,
          화면(#bgm-frame)은 처음부터 여기 있고 **자리만** 옮겨 다닌다. -->
     <div id="bgm-stage" class="bgm-stage" aria-hidden="true">
-      <div id="bgm-frame" class="bgmp-frame"></div>
+      <div id="bgm-frame" class="bgmp-frame">
+        <!-- 유튜브 API 는 넘겨준 칸을 **iframe 으로 통째로 갈아 끼운다**.
+             그래서 자리를 잡아 주는 바깥 칸(#bgm-frame)과 갈려 나갈 안쪽 칸을 나눈다 —
+             안 그러면 크기를 넣던 요소가 떨어져 나간 껍데기가 돼서 화면이 안 커진다. -->
+        <div id="bgm-yt"></div>
+      </div>
     </div>
 
     <div id="bang-flash" class="bang-flash" aria-hidden="true"></div>
