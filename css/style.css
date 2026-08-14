@@ -2652,12 +2652,38 @@ body.is-playing .play-strip { pointer-events: auto; }
   color: rgba(255, 238, 214, 0.95);
 }
 .bgmp-meta em {
+  flex: 0 1 auto;
+  min-width: 0;
   font-style: normal;
   font-size: 9.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: rgba(255, 190, 130, 0.45);
+}
+/* 한 곡 고정 ↔ 시간선 따라가기.
+   곡을 갈아 끼울 때마다 유튜브 프리롤이 붙을 수 있어서, 한 곡으로 묶어 둘 수 있게 했다. */
+.bgmp-mode {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 155, 47, 0.34);
+  border-radius: 3px;
+  background: rgba(255, 140, 45, 0.07);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: rgba(255, 196, 145, 0.72);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.bgmp-mode:hover { border-color: rgba(255, 200, 130, 0.8); background: rgba(255, 140, 45, 0.2); color: rgba(255, 236, 210, 0.95); }
+.bgmp-mode.is-one {
+  border-color: rgba(255, 190, 110, 0.7);
+  background: rgba(255, 150, 50, 0.22);
+  color: rgba(255, 240, 215, 0.95);
 }
 
 /* 좁은 화면 — 자리를 옮기되 200×200 아래로는 내려가지 않는다 */

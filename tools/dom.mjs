@@ -16,6 +16,7 @@ function ctx2d() {
 }
 function el(tag = 'div') {
   const classes = new Set();
+  const attrs = new Map();
   const node = {
     tagName: String(tag).toUpperCase(), nodeType: 1, children: [], style: {}, dataset: {},
     width: 512, height: 512, title: '', value: '',
@@ -30,8 +31,12 @@ function el(tag = 'div') {
     appendChild: (c) => (node.children.push(c), c),
     append: (...c) => node.children.push(...c),
     removeChild: noop, remove: noop, insertBefore: (c) => c,
-    addEventListener: (t, f) => rec(node)(t, f), removeEventListener: noop, setAttribute: noop,
-    getAttribute: () => null, removeAttribute: noop, focus: noop, blur: noop, click: noop,
+    addEventListener: (t, f) => rec(node)(t, f), removeEventListener: noop,
+    // 속성도 실제로 담아 둔다 — aria-* 같은 걸 검사기가 읽을 수 있어야 한다
+    setAttribute: (k, v) => { attrs.set(String(k), String(v)); },
+    getAttribute: (k) => (attrs.has(String(k)) ? attrs.get(String(k)) : null),
+    removeAttribute: (k) => { attrs.delete(String(k)); },
+    focus: noop, blur: noop, click: noop,
     querySelector: () => el(), querySelectorAll: () => [],
     getContext: () => ctx2d(),
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720 }),

@@ -4002,9 +4002,51 @@ function mvAt(x) {
   return MV_BY_X[k];
 }
 function bgmWant(x) {
+  if (bgmOne) return;                     // 한 곡 고정 — 아무 것도 갈아 끼우지 않는다
   const t = mvAt(x);
   if (!t || t.i === bgmTrack || t.i === bgmPending) return;
   bgmPending = t.i;
+}
+
+/* --- 한 곡 고정 -----------------------------------------------------
+ * 유튜브 광고(프리롤)는 **새 재생을 시작할 때** 붙는다. 되감기에는 안 붙는다.
+ * 그런데 시간선을 따라가는 방식은 재생 한 번에 곡을 열 번 갈아 끼우므로
+ * 프리롤이 붙을 기회도 열 번이다. 「LOVE ATTACK」 한 곡으로 고정하면
+ * 처음 한 번으로 준다 — 광고를 없애는 게 아니라 횟수를 줄이는 것이다.
+ * (광고를 끄는 건 유튜브와 채널 사이의 문제라 이쪽에서 손댈 수 없다)
+ * ------------------------------------------------------------------ */
+const BGM_ONE_I = Math.max(0, MVS.findIndex((m) => m.id === BGM.id));
+const BGM_ONE_KEY = 'rescene.bgm.one';
+const bgmModeEl = document.getElementById('bgm-mode');
+let bgmOne = false;
+
+function setBgmOne(on, opts = {}) {
+  bgmOne = !!on;
+  if (bgmModeEl) {
+    bgmModeEl.textContent = bgmOne ? '한 곡' : '시간선';
+    bgmModeEl.classList.toggle('is-one', bgmOne);
+    bgmModeEl.setAttribute('aria-pressed', bgmOne ? 'true' : 'false');
+    bgmModeEl.title = bgmOne
+      ? `「${MVS[BGM_ONE_I].song}」 한 곡만 돈다 — 곡을 안 바꾸니 유튜브 프리롤이 처음 한 번으로 준다. 누르면 시간선 따라가기.`
+      : '진행선이 마지막으로 지나온 MV 가 깔린다 — 곡이 바뀔 때마다 프리롤이 붙을 수 있다. 누르면 한 곡 고정.';
+  }
+  if (opts.save !== false) { try { localStorage.setItem(BGM_ONE_KEY, bgmOne ? '1' : '0'); } catch {} }
+  if (opts.sync === false) return;
+  // 켜면 그 곡으로 한 번만 갈아 끼우고 그 뒤로는 가만히 둔다. 끄면 지금 자리의 곡으로 돌아간다.
+  if (bgmOne) bgmPending = bgmTrack === BGM_ONE_I ? -1 : BGM_ONE_I;
+  else bgmWant(play.active ? play.front : PLAY_FROM);
+}
+if (bgmModeEl) {
+  bgmModeEl.addEventListener('pointerdown', (e) => e.stopPropagation());
+  bgmModeEl.addEventListener('click', (e) => { e.stopPropagation(); setBgmOne(!bgmOne); });
+}
+{
+  // ?bgm=one / ?bgm=line 이 저장된 설정보다 우선한다
+  const q = new URLSearchParams(location.search).get('bgm');
+  let init = false;
+  if (q === 'one' || q === 'line') init = q === 'one';
+  else { try { init = localStorage.getItem(BGM_ONE_KEY) === '1'; } catch {} }
+  setBgmOne(init, { save: false, sync: false });
 }
 function bgmApplyTrack(i) {
   bgmTrack = i;
@@ -4074,8 +4116,8 @@ function bgmMount() {
 }
 
 function bgmStart() {
-  // 시작 곡은 진행선이 서 있는 자리의 곡이다
-  if (bgmTrack < 0) bgmApplyTrack(mvAt(play.active ? play.front : PLAY_FROM).i);
+  // 시작 곡은 진행선이 서 있는 자리의 곡 — 한 곡 고정이면 그 한 곡이다
+  if (bgmTrack < 0) bgmApplyTrack(bgmOne ? BGM_ONE_I : mvAt(play.active ? play.front : PLAY_FROM).i);
   bgmMount();
   bgmTarget = 1;
   if (bgmView) { bgmView.classList.add('is-on'); bgmView.setAttribute('aria-hidden', 'false'); }
@@ -5424,6 +5466,15 @@ if (startId) {
 }
 
 // 콘솔·검사기에서 상태를 들여다보기 위한 읽기용 핸들
-window.__rescene = { declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
+const bgmMode = {
+  ONE_I: BGM_ONE_I,
+  el: bgmModeEl,
+  set: (v) => setBgmOne(v),
+  want: (x) => bgmWant(x),
+  get one() { return bgmOne; },
+  get track() { return bgmTrack; },
+  get pending() { return bgmPending; },
+};
+window.__rescene = { declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
 
 tick();

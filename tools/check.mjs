@@ -503,6 +503,42 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (!ok) errs++;
 }
 
+// 한 곡 고정 — 켜면 곡을 한 번도 안 갈아 끼워야 한다 (프리롤이 붙을 기회를 줄이는 게 목적)
+{
+  const api = globalThis.window.__rescene;
+  const bm = api.bgmMode;
+  const probes = api.MV_BY_X.map((t) => t.x + 5);   // 모든 MV 를 하나씩 지나가 본다
+  // 진행선이 모든 MV 를 하나씩 지나가는 동안 "갈아 끼울 곡"이 몇 번 바뀌는지 센다.
+  // 켜는 순간의 1회 전환은 목표가 아니므로 그 값을 기준선으로 잡고 그 뒤 변화만 본다.
+  const sweep = () => {
+    let last = bm.pending;
+    let n = 0;
+    for (const x of probes) { bm.want(x); if (bm.pending !== last) { n++; last = bm.pending; } }
+    return n;
+  };
+  const before = bm.one;
+
+  clickOn('bgm-mode');
+  const onTxt = (bm.el.textContent || '').trim();
+  const onOk = bm.one === true && onTxt === '한 곡' && bm.el.getAttribute('aria-pressed') === 'true';
+  const swapsOne = sweep();
+
+  clickOn('bgm-mode');
+  const offTxt = (bm.el.textContent || '').trim();
+  const offOk = bm.one === false && offTxt === '시간선';
+  const swapsLine = sweep();
+
+  // 고정한 곡은 배경음으로 정해 둔 그 곡이어야 한다
+  const song = api.MV_BY_X.find((t) => t.i === bm.ONE_I);
+  const ok = onOk && offOk && swapsOne === 0 && swapsLine >= 5 && !!song;
+  console.log(
+    `   한 곡 고정: "${onTxt}" 곡 바뀜 ${swapsOne}회 · "${offTxt}" 곡 바뀜 ${swapsLine}회 · ` +
+    `고정곡 ${song ? song.mv.song : '?'} ${ok ? '✅' : '❌'}`
+  );
+  if (!ok) errs++;
+  if (bm.one !== before) clickOn('bgm-mode');
+}
+
 // YoYo(미완성) → UhUh(완성) — 실이 두 노드를 잇고, 완성 지점에 닿아야 보이는지
 {
   const api = globalThis.window.__rescene;
