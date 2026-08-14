@@ -1854,15 +1854,14 @@ function makeHalo(color, s, opacity = 0.5) {
  * 대표 썸네일(mqdefault)은 흰 배경에 이름만 적힌 카드라 얼굴이 없다.
  * 대신 영상 1/4 지점 프레임(`hq1.jpg`)을 쓴다 — 다섯 명 모두 정면 얼굴이다.
  *
- * `ph: true` 는 로컬 파일이 회색 실루엣뿐인 멤버 — 실루엣보다 얼굴이 나으니
- * 이쪽은 처음부터 유튜브 프레임으로 간다.
+ * 파일이 있으면 언제나 파일이 먼저다. 유튜브 프레임은 어디까지나 예비다.
  * 파일명이 한글이라 encodeURIComponent 를 거친다.
  */
 const MEMBER_PHOTO = {
   woni:   { name: '원이',   real: '정원이',     file: '원이.jpg',   yt: 'D88uhaLAGoM' },
-  liv:    { name: '리브',   real: '진경은',     file: '리브.png',   yt: 'l-RMOXHFMVk', ph: true },
+  liv:    { name: '리브',   real: '진경은',     file: '리브.png',   yt: 'l-RMOXHFMVk' },
   minami: { name: '미나미', real: '이토 미나미', file: '미나미.jpg', yt: '4fqiTeVz504' },
-  may:    { name: '메이',   real: '이예빈',     file: '메이.png',   yt: 'I_K54WugHtQ', ph: true },
+  may:    { name: '메이',   real: '이예빈',     file: '메이.png',   yt: 'I_K54WugHtQ' },
   zena:   { name: '제나',   real: '김가영',     file: '제나.jpg',   yt: 'JnVAt6ZMuG4' },
 };
 const ytFace = (id) => `https://i.ytimg.com/vi/${id}/hq1.jpg`;
@@ -1875,13 +1874,10 @@ const PHOTO_FALLBACK =
   "if(this.dataset.yt){if(!this.dataset.fb){this.dataset.fb=1;this.classList.add('is-yt');" +
   "this.src='https://i.ytimg.com/vi/'+this.dataset.yt+'/hq1.jpg';return;}}" +
   "this.closest('.mp-slot').classList.add('is-gone');";
-const photoImg = (m) => {
-  const yt = !!(m.ph && m.yt);      // 로컬이 실루엣뿐이면 건너뛰고 바로 유튜브 프레임
-  const src = yt ? ytFace(m.yt) : `./assets/members/${encodeURIComponent(m.file)}`;
-  return `<img class="${yt ? 'is-yt' : ''}"${yt ? ' data-fb="1"' : ''} src="${src}"` +
-    ` data-yt="${m.yt || ''}" alt="${m.name}" title="${m.name} (${m.real})" loading="lazy"` +
-    ` onerror="${PHOTO_FALLBACK}">`;
-};
+const photoImg = (m) =>
+  `<img src="./assets/members/${encodeURIComponent(m.file)}"` +
+  ` data-yt="${m.yt || ''}" alt="${m.name}" title="${m.name} (${m.real})" loading="lazy"` +
+  ` onerror="${PHOTO_FALLBACK}">`;
 const photoRow = (photo, cls) => {
   if (!photo) return '';
   const keys = (Array.isArray(photo) ? photo : [photo]).filter((k) => MEMBER_PHOTO[k]);

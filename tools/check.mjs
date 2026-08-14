@@ -694,15 +694,15 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const fbOk = imgs.every((t) => /i\.ytimg\.com/.test(t) && /dataset\.fb=1/.test(t) && /is-gone/.test(t));
   // 대표 썸네일(mqdefault)은 흰 바탕에 이름만 적힌 카드라 얼굴이 없다 — 1/4 지점 프레임을 써야 한다
   const face = imgs.every((t) => /hq1\.jpg/.test(t)) && !/mqdefault/.test(imgs.join(''));
-  // 실루엣뿐인 멤버는 로컬 파일을 건너뛰고 바로 유튜브 프레임에서 시작한다
+  // 파일이 있으면 언제나 파일이 먼저다 — 유튜브 프레임에서 시작하는 사진이 있으면 안 된다
   const straight = imgs.filter((t) => /src="https:\/\/i\.ytimg\.com/.test(t));
-  const straightOk = straight.length > 0 && straight.every((t) => /data-fb="1"/.test(t) && /class="is-yt"/.test(t));
+  const straightOk = straight.length === 0;
   // & 를 그대로 쓰면 HTML 속성에서 깨진다 — && 가 남아 있으면 실패
   const amp = imgs.some((t) => /&&/.test(t));
   const ok2 = imgs.length >= 18 && withYt === imgs.length && fbOk && face && straightOk && !amp;
   console.log(
     `   사진 대체: ${withYt}/${imgs.length}장에 유튜브 예비 · 얼굴 프레임 ${face ? '✅' : '❌ mqdefault'} · ` +
-    `실루엣 ${straight.length}장 바로 대체 ${straightOk ? '✅' : '❌'} · 3단 하강 ${fbOk ? '✅' : '❌'} · ` +
+    `파일 우선 ${straightOk ? '✅' : `❌ ${straight.length}장이 유튜브부터`} · 3단 하강 ${fbOk ? '✅' : '❌'} · ` +
     `속성 escape ${amp ? '❌' : '✅'} ${ok2 ? '✅' : '❌'}`
   );
   if (!ok2) errs++;
