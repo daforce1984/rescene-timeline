@@ -4087,6 +4087,7 @@ const bgmFrame = document.getElementById('bgm-frame');
 const bgmSlot = document.getElementById('bgm-slot');
 const bgmBand = document.getElementById('play-strip');   // 영상이 깔릴 자리 = 아래 소개 패널
 const bgmBandBg = document.getElementById('play-bg');    // 그 패널의 바탕 (영상은 이 위에 깔린다)
+const bgmRule = document.getElementById('ps-rule');      // 패널 맨 위 가로 선 = 영상의 윗변
 let ytPlayer = null;
 let ytReady = false;
 
@@ -4257,6 +4258,19 @@ function bgmBandRect() {
   return { x: 0, y: H * 0.62, w: W, h: H * 0.38 };
 }
 
+/**
+ * 영상이 **실제로** 깔리는 칸 — 패널에서 바탕이 짙게 깔린 구간, 즉 가로 선 아래만.
+ * 패널 상자에는 위쪽에 그러데이션이 배경으로 스며드는 구간(데스크톱 148px)이 함께 들어 있는데,
+ * 거기는 바탕이 투명해서 영상만 남는다. 그 구간까지 깔았더니 패널 위로 영상이
+ * 삐져나온 것처럼 보였다. 가로 선을 영상의 윗변으로 삼는다.
+ */
+function bgmVideoRect() {
+  const b = bgmBandRect();
+  const r = bgmRule && bgmRule.getBoundingClientRect ? bgmRule.getBoundingClientRect() : null;
+  const top = r && r.top > b.y && r.top < b.y + b.h ? r.top : b.y;
+  return { x: b.x, y: top, w: b.w, h: Math.max(1, b.y + b.h - top) };
+}
+
 /** 지금 화면이 앉아야 할 사각형 */
 function bgmStageRect() {
   const W = Math.max(1, window.innerWidth);
@@ -4266,9 +4280,9 @@ function bgmStageRect() {
     if (r && r.width > 1 && r.height > 1) return { x: r.left, y: r.top, w: r.width, h: r.height };
     return { x: W - 268, y: 160, w: 242, h: 200 };
   }
-  // 소개 띠를 남김없이 덮는다 (cover). 16:9 는 그대로 지키고 넘치는 쪽만 잘라 낸다 —
+  // 그 칸을 남김없이 덮는다 (cover). 16:9 는 그대로 지키고 넘치는 쪽만 잘라 낸다 —
   // 찌그러뜨리면 사람 얼굴에서 먼저 티가 난다. 넘친 부분은 아래 clip 이 잘라 준다.
-  const b = bgmBandRect();
+  const b = bgmVideoRect();
   const w = Math.max(b.w, b.h * (16 / 9));
   const h = Math.max(b.h, b.w * (9 / 16));
   return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
@@ -4282,14 +4296,17 @@ function bgmLayout() {
   bgmFrame.style.top = `${Math.round(r.y)}px`;
   bgmFrame.style.width = `${Math.round(r.w)}px`;
   bgmFrame.style.height = `${Math.round(r.h)}px`;
-  // 띠 밖으로 넘친 부분을 잘라 낸다 — 영상은 16:9 를 지키느라 띠보다 크게 잡히므로
+  // 그 칸 밖으로 넘친 부분을 잘라 낸다 — 영상은 16:9 를 지키느라 칸보다 크게 잡히므로.
+  // (무대는 화면 전체 크기 그대로 둔다. 무대를 옮기면 화면이 미끄러지는 도중에 한 번 튄다)
   if (bgmStage && bgmStage.style) {
-    if (!bgmSpace) { bgmStage.style.clipPath = ''; return; }
-    const b = bgmBandRect();
+    if (!bgmSpace) { bgmStage.style.clipPath = ''; bgmStage.style.webkitClipPath = ''; return; }
+    const b = bgmVideoRect();
     const W = Math.max(1, window.innerWidth);
     const H = Math.max(1, window.innerHeight);
-    bgmStage.style.clipPath = `inset(${Math.round(b.y)}px ${Math.round(W - b.x - b.w)}px`
+    const clip = `inset(${Math.round(b.y)}px ${Math.round(W - b.x - b.w)}px`
       + ` ${Math.round(H - b.y - b.h)}px ${Math.round(b.x)}px)`;
+    bgmStage.style.clipPath = clip;
+    bgmStage.style.webkitClipPath = clip;   // 옛 사파리
   }
 }
 /** 아래 소개 띠로 내려앉히기 / 모니터로 되돌리기 */
@@ -5881,6 +5898,8 @@ const bgmStageApi = {
   frame: bgmFrame,
   layout: bgmLayout,
   rect: () => bgmStageRect(),
+  band: () => bgmBandRect(),
+  video: () => bgmVideoRect(),
   set: (v) => setBgmStage(v),
   get space() { return bgmSpace; },
 };

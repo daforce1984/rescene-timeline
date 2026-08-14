@@ -887,18 +887,30 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const st = api.bgmStage;
   const card = byIdEl('bgm-player');
   const frame = byIdEl('bgm-frame');
-  const band = byIdEl('play-strip').getBoundingClientRect();
   const mainSrc = fs.readFileSync(path.join(HERE, '..', 'js', 'main.js'), 'utf8');
+  // 실제 화면처럼 자리를 정해 준다 — 패널은 화면 아래 260px, 그 중 위 148px 은
+  // 배경으로 스며드는 그러데이션 구간이고 가로 선(ps-rule) 아래부터가 짙은 바탕이다.
+  const W0 = globalThis.window.innerWidth;
+  const H0 = globalThis.window.innerHeight;
+  byIdEl('play-strip')._rect = { left: 0, top: H0 - 260, width: W0, height: 260, right: W0, bottom: H0 };
+  byIdEl('ps-rule')._rect = { left: 0, top: H0 - 112, width: W0, height: 1, right: W0, bottom: H0 - 111 };
+  const band = st.band();
+  const vid = st.video();
 
   st.set(true);
+  st.layout();
   const r = st.rect();
-  // 띠를 남김없이 덮되 16:9 는 지키고, 띠 한가운데에 놓인다
-  const covers = r.w >= band.width - 0.5 && r.h >= band.height - 0.5;
+  // 영상이 깔리는 칸은 「가로 선 아래」다 — 패널 위쪽 그러데이션 구간까지 깔면
+  // 거기는 바탕이 투명해서 영상만 패널 밖으로 삐져나온 것처럼 보인다
+  const ruleTop = Math.abs(vid.y - (H0 - 112)) < 1 && vid.h < band.h;
+  const covers = r.w >= vid.w - 0.5 && r.h >= vid.h - 0.5;
   const ratio = Math.abs(r.w / r.h - 16 / 9) < 0.01;
-  const onBand = Math.abs((r.x + r.w / 2) - (band.left + band.width / 2)) < 1
-    && Math.abs((r.y + r.h / 2) - (band.top + band.height / 2)) < 1;
-  // 띠 밖으로 넘친 부분은 잘라 낸다 (안 자르면 화면 전체로 번진다)
-  const clipped = /^inset\(/.test(st.el.style.clipPath || '');
+  const onBand = Math.abs((r.x + r.w / 2) - (vid.x + vid.w / 2)) < 1
+    && Math.abs((r.y + r.h / 2) - (vid.y + vid.h / 2)) < 1;
+  // 그 칸 밖으로 넘친 부분은 잘라 낸다 (안 자르면 화면 전체로 번진다)
+  const cp = /inset\((-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\)/.exec(st.el.style.clipPath || '');
+  const clipped = !!cp && Math.abs(+cp[1] - vid.y) < 1 && Math.abs(+cp[3] - (H0 - vid.y - vid.h)) < 1
+    && /inset\(/.test(st.el.style.webkitClipPath || '');
   const marked = st.el._classes.has('is-space') && card._classes.has('is-space');
   const moved = frame.style.width === `${Math.round(r.w)}px` && frame.style.height === `${Math.round(r.h)}px`;
   st.set(false);
@@ -921,7 +933,7 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const zi = sp && /z-index:\s*(\d+)/.exec(sp[1]);
   const between = zi && stz && bgz && +zi[1] > +bgz[1] && +zi[1] < +stz[1];
   // 바탕은 패널을 재서 높이를 맞춘다 (CSS 에 또 적으면 어긋난다)
-  const bgFit = Math.abs(parseFloat(byIdEl('play-bg').style.height) - band.height) < 1.5;
+  const bgFit = Math.abs(parseFloat(byIdEl('play-bg').style.height) - band.h) < 1.5;
   // 곡이 멈추면(일시정지·광고) 이 자리를 떠나 우상단 작은 창으로 돌아간다
   const poll = /ytPoll <= 0[\s\S]*?\n  \}/.exec(mainSrc);
   const leaves = !!poll && /setBgmStage\(false\)/.test(poll[0]) && /'pause'/.test(mainSrc);
@@ -937,16 +949,18 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const mount = /function bgmMount\(\)[\s\S]*?\n\}/.exec(mainSrc);
   const hostOk = !!mount && /getElementById\('bgm-yt'\)/.test(mount[0]) && !/'bgm-frame'/.test(mount[0]);
   const nested = /<div id="bgm-frame"[^>]*>[\s\S]{0,400}?<div id="bgm-yt">/.test(html);
+  byIdEl('play-strip')._rect = null;    // 뒤 검사들이 원래 자리로 보게 되돌린다
+  byIdEl('ps-rule')._rect = null;
 
-  console.log(`   소개 패널 바탕 영상: ${Math.round(r.w)}×${Math.round(r.h)} 로 패널(${Math.round(band.width)}×${Math.round(band.height)}) 덮음 ${covers && ratio && onBand ? '✅' : '❌'}`
-    + ` · 패널 밖 잘라냄 ${clipped ? '✅' : '❌'}`
+  console.log(`   소개 패널 바탕 영상: ${Math.round(r.w)}×${Math.round(r.h)} 로 칸(${Math.round(vid.w)}×${Math.round(vid.h)}) 덮음 ${covers && ratio && onBand ? '✅' : '❌'}`
+    + ` · 가로 선 아래부터 ${ruleTop ? '✅' : '❌'} · 패널 밖 잘라냄 ${clipped ? '✅' : '❌'}`
     + ` · 투명도 ${op ? op[1] : '?'} ${seeThru && blend ? '✅ 옅게 비침' : '❌'}`
     + ` · 바탕(${bgz ? bgz[1] : '?'}) < 영상(${zi ? zi[1] : '?'}) < 글자(${stz ? stz[1] : '?'}) ${between ? '✅' : '❌'}`
     + ` · 바탕 높이 맞음 ${bgFit ? '✅' : '❌'} · 멈추면 작은 창 ${leaves ? '✅' : '❌'}`
     + ` · 영상만 ${onlyVideo ? '✅' : '❌'}`
     + ` · 자리 옮김 ${marked && moved ? '✅' : '❌'} · 되돌아옴 ${back ? '✅' : '❌'}`
     + ` · 유튜브가 갈아 끼울 칸 따로 ${hostOk && nested ? '✅' : '❌ 자리 잡는 칸이 떨어져 나감'}`);
-  if (!covers || !ratio || !onBand || !clipped || !seeThru || !blend || !between || !bgFit || !leaves
+  if (!covers || !ratio || !onBand || !clipped || !ruleTop || !seeThru || !blend || !between || !bgFit || !leaves
     || !onlyVideo || !marked || !moved || !back || !stageHtml || !hostOk || !nested) errs++;
 }
 

@@ -39,7 +39,9 @@ function el(tag = 'div') {
     focus: noop, blur: noop, click: noop,
     querySelector: () => el(), querySelectorAll: () => [],
     getContext: () => ctx2d(),
-    getBoundingClientRect: () => ({ left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720 }),
+    // 검사기가 요소마다 자리를 정해 줄 수 있게 열어 둔다 (el._rect = {...})
+    getBoundingClientRect: () => node._rect || { left: 0, top: 0, width: 1280, height: 720, right: 1280, bottom: 720 },
+    _rect: null,
     setPointerCapture: noop, releasePointerCapture: noop,
     _classes: classes,
   };
