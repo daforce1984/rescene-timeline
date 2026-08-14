@@ -5669,13 +5669,17 @@ function tick() {
         rollTo(clkDay, pt.d);
       }
       if (playDate) playDate.textContent = `${pt.y}. ${pt.m}. ${pt.d}`;
-      // 자라나는 시간선 끝에도 같은 날짜를 붙인다 — 지금 어디까지 왔는지가 선 위에서 보여야 한다
-      if (headDate) {
+      // 자라나는 시간선 끝에도 같은 날짜를 붙인다 — 지금 어디까지 왔는지가 선 위에서 보여야 한다.
+      // 다만 좁은 화면에서는 뺀다. 아래 소개 패널의 큰 시계가 같은 날짜를 훨씬 크게
+      // 말해 주고 있어서, 폭이 좁으면 시간선 위 글자와 겹쳐 읽히기만 한다.
+      if (headDate && !narrowUI) {
         const hl = play.front >= NEXUS_X ? NEXUS_LINE : MAIN;
         const hp = pointAtX(hl, clamp(play.front, TIME.xTailHead, TIME.xTailEnd)).point;
         headAnchor.position.copy(hp).addScaledVector(camUp, 30);
         headAnchor.visible = true;
         headDate.textContent = `${pt.y}. ${pt.m}. ${pt.d}`;
+      } else {
+        headAnchor.visible = false;
       }
       if (playBar) playBar.style.width = `${((play.front - PLAY_FROM) / (PLAY_TO - PLAY_FROM)) * 100}%`;
     }
@@ -5719,6 +5723,15 @@ function tick() {
 let sizeW = window.innerWidth;
 let sizeH = window.innerHeight;
 let sizeTimer = 0;
+/**
+ * 좁은 화면인가 — CSS 의 640px 경계와 같은 값을 쓴다.
+ * 여기 걸리면 시간선 위 날짜 이름표를 빼고 아래 소개 패널만 남긴다.
+ */
+let narrowUI = false;
+function updateNarrowUI() {
+  narrowUI = window.innerWidth <= 640;
+}
+updateNarrowUI();
 
 function applySize(w, h) {
   sizeW = w;
@@ -5735,6 +5748,7 @@ function onResize() {
   if (w === sizeW && h === sizeH) return;
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  updateNarrowUI();
   bgmLayout();
   clearTimeout(sizeTimer);
   sizeTimer = setTimeout(() => applySize(window.innerWidth, window.innerHeight), 220);

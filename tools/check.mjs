@@ -980,9 +980,17 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const safe = nar ? /env\(safe-area-inset-bottom\)/.test(nar[0]) : false;
   const askCol = nar ? /\.ask-btns \{[^}]*flex-direction:\s*column/.test(nar[0]) : false;
   const tap = /\.ask-btn \{[^}]*min-height:\s*44px/.test(CSS);
+  // 아래 소개 패널 — 가로로 나란히 두면 폭이 모자라 제목이 잘렸다. 세로로 쌓는다.
+  // 다만 키는 고정이어야 한다 (사건마다 늘었다 줄었다 하면 글자가 위아래로 튄다).
+  const bodyCol = nar ? /\.ps-body \{[^}]*flex-direction:\s*column/.test(nar[0]) : false;
+  const bodyFix = nar ? /\.ps-body \{[^}]*height:\s*\d+px/.test(nar[0]) : false;
+  const clockRow = nar ? /\.ps-clock \{[^}]*flex-direction:\s*row/.test(nar[0]) : false;
+  const photoCol = nar ? /\.play-card\.has-photo \{[^}]*flex-direction:\s*column/.test(nar[0]) : false;
+  const panel = bodyCol && bodyFix && clockRow && photoCol;
   console.log(`   좁은 화면: 버튼 줄 접힘 ${navWrap && navFit ? '✅' : '❌'} · 노치 여백 ${safe ? '✅' : '❌'}`
-    + ` · 물음 버튼 세로 ${askCol ? '✅' : '❌'} · 손가락 크기 44px ${tap ? '✅' : '❌'}`);
-  if (!navWrap || !navFit || !safe || !askCol || !tap) errs++;
+    + ` · 물음 버튼 세로 ${askCol ? '✅' : '❌'} · 손가락 크기 44px ${tap ? '✅' : '❌'}`
+    + ` · 소개 패널 세로쌓기 ${panel ? '✅ (날짜 한 줄 · 키 고정)' : '❌'}`);
+  if (!navWrap || !navFit || !safe || !askCol || !tap || !panel) errs++;
 }
 
 // 세로로 긴 손전화에서 카메라 — 앞서 보는 양이 화면 폭에 맞게 줄고, 앞뒤로 안 튀어야 한다.
@@ -991,19 +999,24 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
 {
   const api = globalThis.window.__rescene;
   const cam = api.camera;
-  const wasAspect = cam.aspect;
+  const W0 = globalThis.window.innerWidth;
+  const H0 = globalThis.window.innerHeight;
+  const resize = () => fire('resize', (h) => h.el === globalThis.window && h.type === 'resize');
   if (api.play.active) { clickOn('btn-play'); step(4); }
-  cam.aspect = 390 / 844;                       // 세로로 긴 손전화
-  cam.updateProjectionMatrix();
+  globalThis.window.innerWidth = 390;           // 세로로 긴 손전화
+  globalThis.window.innerHeight = 844;
+  resize();
   const halfW = Math.hypot(120, 235, 940) * Math.tan((cam.fov * Math.PI) / 360) * cam.aspect;
   clickOn('btn-play');
   step(8);
-  let last = null, back = 0, backOne = 0, lead = 0, n = 0;
+  let last = null, back = 0, backOne = 0, lead = 0, n = 0, headSeen2 = 0;
   for (let k = 0; k < 1200 && api.play.active; k++) {
     step(1);
     // 첫 150프레임은 전체 보기에서 재생 자리로 날아오는 구간이라 뺀다
     if (k < 150) continue;
     n++;
+    // 좁은 화면에서는 시간선 위 날짜 이름표를 띄우지 않는다 (아래 큰 시계와 겹친다)
+    if (api.headAnchor.visible) headSeen2++;
     const tx = api.controls.target.x;
     if (last !== null) { const d = tx - last; if (d < 0) { back += -d; backOne = Math.max(backOne, -d); } }
     last = tx;
@@ -1011,12 +1024,14 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
     if (api.play.hold <= 0) lead = Math.max(lead, tx - api.play.front);
   }
   if (api.play.active) { clickOn('btn-play'); step(4); }
-  cam.aspect = wasAspect;
-  cam.updateProjectionMatrix();
+  globalThis.window.innerWidth = W0;
+  globalThis.window.innerHeight = H0;
+  resize();
   const leadPct = lead / halfW;
-  const ok = n > 400 && leadPct < 0.25 && back < 60 && backOne < halfW * 0.1;
+  const ok = n > 400 && leadPct < 0.25 && back < 60 && backOne < halfW * 0.1 && headSeen2 === 0;
   console.log(`   세로 화면 카메라: ${n}프레임 · 앞서 보는 폭 ${lead.toFixed(0)} / 화면 반폭 ${halfW.toFixed(0)}`
-    + ` = ${(leadPct * 100).toFixed(0)}% · 뒤로 물러남 총 ${back.toFixed(0)} · 한 번에 최대 ${backOne.toFixed(1)} ${ok ? '✅' : '❌'}`);
+    + ` = ${(leadPct * 100).toFixed(0)}% · 뒤로 물러남 총 ${back.toFixed(0)} · 한 번에 최대 ${backOne.toFixed(1)}`
+    + ` · 시간선 위 날짜 ${headSeen2 === 0 ? '✅ 안 뜸' : `❌ ${headSeen2}프레임`} ${ok ? '✅' : '❌'}`);
   if (!ok) errs++;
 }
 
