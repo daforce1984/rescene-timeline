@@ -1846,12 +1846,16 @@ function makeHalo(color, s, opacity = 0.5) {
  *
  * 사진은 세 단계로 떨어진다:
  *   1. assets/members 의 파일 — 소속사 자료라 저장소에 넣지 않는다. 로컬에만 있다.
- *   2. 없으면 그 멤버의 데뷔 트레일러 유튜브 썸네일(`yt`).
+ *   2. 없으면 그 멤버의 데뷔 트레일러에서 유튜브가 뽑아 둔 프레임(`yt`).
  *      MV 썸네일과 똑같이 유튜브가 주는 걸 그대로 거는 것이라 재배포가 아니고,
  *      GitHub Pages 처럼 파일이 없는 곳에서도 얼굴이 보인다.
  *   3. 그것도 실패하면 이름 첫 글자를 넣은 동그라미(`.mp-slot.is-gone`).
  *
- * `ph: true` 는 구글에 사진이 없어 실루엣인 멤버 — 흐리게 깐다.
+ * 대표 썸네일(mqdefault)은 흰 배경에 이름만 적힌 카드라 얼굴이 없다.
+ * 대신 영상 1/4 지점 프레임(`hq1.jpg`)을 쓴다 — 다섯 명 모두 정면 얼굴이다.
+ *
+ * `ph: true` 는 로컬 파일이 회색 실루엣뿐인 멤버 — 실루엣보다 얼굴이 나으니
+ * 이쪽은 처음부터 유튜브 프레임으로 간다.
  * 파일명이 한글이라 encodeURIComponent 를 거친다.
  */
 const MEMBER_PHOTO = {
@@ -1861,20 +1865,23 @@ const MEMBER_PHOTO = {
   may:    { name: '메이',   real: '이예빈',     file: '메이.png',   yt: 'I_K54WugHtQ', ph: true },
   zena:   { name: '제나',   real: '김가영',     file: '제나.jpg',   yt: 'JnVAt6ZMuG4' },
 };
+const ytFace = (id) => `https://i.ytimg.com/vi/${id}/hq1.jpg`;
 /**
  * 1 → 2 → 3 으로 한 번씩만 떨어지는 onerror.
  * 같은 주소로 무한히 되돌지 않게 어디까지 갔는지 `data-fb` 에 적어 둔다.
  * HTML 속성 안이라 `&&` 는 escape 가 필요해진다 — 중첩 if 로 피한다.
  */
 const PHOTO_FALLBACK =
-  "if(this.dataset.yt){if(!this.dataset.fb){this.dataset.fb=1;" +
-  "this.classList.remove('is-placeholder');this.classList.add('is-yt');" +
-  "this.src='https://i.ytimg.com/vi/'+this.dataset.yt+'/mqdefault.jpg';return;}}" +
+  "if(this.dataset.yt){if(!this.dataset.fb){this.dataset.fb=1;this.classList.add('is-yt');" +
+  "this.src='https://i.ytimg.com/vi/'+this.dataset.yt+'/hq1.jpg';return;}}" +
   "this.closest('.mp-slot').classList.add('is-gone');";
-const photoImg = (m) =>
-  `<img class="${m.ph ? 'is-placeholder' : ''}" src="./assets/members/${encodeURIComponent(m.file)}"` +
-  ` data-yt="${m.yt || ''}" alt="${m.name}" title="${m.name} (${m.real})" loading="lazy"` +
-  ` onerror="${PHOTO_FALLBACK}">`;
+const photoImg = (m) => {
+  const yt = !!(m.ph && m.yt);      // 로컬이 실루엣뿐이면 건너뛰고 바로 유튜브 프레임
+  const src = yt ? ytFace(m.yt) : `./assets/members/${encodeURIComponent(m.file)}`;
+  return `<img class="${yt ? 'is-yt' : ''}"${yt ? ' data-fb="1"' : ''} src="${src}"` +
+    ` data-yt="${m.yt || ''}" alt="${m.name}" title="${m.name} (${m.real})" loading="lazy"` +
+    ` onerror="${PHOTO_FALLBACK}">`;
+};
 const photoRow = (photo, cls) => {
   if (!photo) return '';
   const keys = (Array.isArray(photo) ? photo : [photo]).filter((k) => MEMBER_PHOTO[k]);
@@ -4033,7 +4040,8 @@ function setBgmOne(on, opts = {}) {
   if (opts.save !== false) { try { localStorage.setItem(BGM_ONE_KEY, bgmOne ? '1' : '0'); } catch {} }
   if (opts.sync === false) return;
   // 켜면 그 곡으로 한 번만 갈아 끼우고 그 뒤로는 가만히 둔다. 끄면 지금 자리의 곡으로 돌아간다.
-  if (bgmOne) bgmPending = bgmTrack === BGM_ONE_I ? -1 : BGM_ONE_I;
+  // 아직 시작 전(bgmTrack < 0)이면 bgmStart 가 알아서 그 곡으로 연다 — 여기서 예약할 필요가 없다.
+  if (bgmOne) bgmPending = bgmTrack < 0 || bgmTrack === BGM_ONE_I ? -1 : BGM_ONE_I;
   else bgmWant(play.active ? play.front : PLAY_FROM);
 }
 if (bgmModeEl) {
@@ -4054,6 +4062,7 @@ function bgmApplyTrack(i) {
   bgm.src = `https://www.youtube.com/watch?v=${mv.id}`;
   if (bgmSong) bgmSong.textContent = mv.song;
   if (bgmAlbum) bgmAlbum.textContent = mv.album;
+  if (bgmPending === i) bgmPending = -1;   // 이미 그 곡이면 다시 갈아 끼우지 않는다
   if (ytReady && ytPlayer) {
     try { bgm.paused ? ytPlayer.cueVideoById(mv.id) : ytPlayer.loadVideoById(mv.id); } catch {}
   }
