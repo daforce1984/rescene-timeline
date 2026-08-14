@@ -2672,6 +2672,9 @@ body.is-playing .play-strip { pointer-events: auto; }
 /* 사진이 없을 때 (저장소에는 멤버 사진을 넣지 않는다) —
    깨진 그림 대신 이름 첫 글자를 넣은 동그라미만 남긴다 */
 .mp-slot { position: relative; display: inline-flex; flex: 0 0 auto; }
+/* 파일이 없어 유튜브 트레일러 썸네일로 떨어졌을 때.
+   16:9 를 동그랗게 자르므로 가운데가 아니라 얼굴 쪽으로 살짝 올려 문다. */
+.mp-slot img.is-yt { object-position: 50% 38%; }
 .mp-slot.is-gone img { display: none; }
 .mp-slot.is-gone::after {
   content: attr(data-ini);

@@ -1843,17 +1843,38 @@ function makeHalo(color, s, opacity = 0.5) {
  * 멤버 프로필 사진.
  * 예전엔 데뷔 트레일러의 영상 화면을 16:9 로 크게 깔았는데, 재생 중엔 그게 너무 커서
  * 시선을 다 가져갔다. 이제는 인물 사진을 동그랗게, 작게 얹는다.
- * assets/members 에 넣어 둔 구글 멤버 소개 사진을 그대로 쓴다 — 외부 요청이 없다.
- * 리브·메이는 구글에 사진이 없어 자리표시자다 (`ph: true` — 실루엣이라 흐리게 깐다).
+ *
+ * 사진은 세 단계로 떨어진다:
+ *   1. assets/members 의 파일 — 소속사 자료라 저장소에 넣지 않는다. 로컬에만 있다.
+ *   2. 없으면 그 멤버의 데뷔 트레일러 유튜브 썸네일(`yt`).
+ *      MV 썸네일과 똑같이 유튜브가 주는 걸 그대로 거는 것이라 재배포가 아니고,
+ *      GitHub Pages 처럼 파일이 없는 곳에서도 얼굴이 보인다.
+ *   3. 그것도 실패하면 이름 첫 글자를 넣은 동그라미(`.mp-slot.is-gone`).
+ *
+ * `ph: true` 는 구글에 사진이 없어 실루엣인 멤버 — 흐리게 깐다.
  * 파일명이 한글이라 encodeURIComponent 를 거친다.
  */
 const MEMBER_PHOTO = {
-  woni:   { name: '원이',   real: '정원이',     file: '원이.jpg' },
-  liv:    { name: '리브',   real: '진경은',     file: '리브.png', ph: true },
-  minami: { name: '미나미', real: '이토 미나미', file: '미나미.jpg' },
-  may:    { name: '메이',   real: '이예빈',     file: '메이.png', ph: true },
-  zena:   { name: '제나',   real: '김가영',     file: '제나.jpg' },
+  woni:   { name: '원이',   real: '정원이',     file: '원이.jpg',   yt: 'D88uhaLAGoM' },
+  liv:    { name: '리브',   real: '진경은',     file: '리브.png',   yt: 'l-RMOXHFMVk', ph: true },
+  minami: { name: '미나미', real: '이토 미나미', file: '미나미.jpg', yt: '4fqiTeVz504' },
+  may:    { name: '메이',   real: '이예빈',     file: '메이.png',   yt: 'I_K54WugHtQ', ph: true },
+  zena:   { name: '제나',   real: '김가영',     file: '제나.jpg',   yt: 'JnVAt6ZMuG4' },
 };
+/**
+ * 1 → 2 → 3 으로 한 번씩만 떨어지는 onerror.
+ * 같은 주소로 무한히 되돌지 않게 어디까지 갔는지 `data-fb` 에 적어 둔다.
+ * HTML 속성 안이라 `&&` 는 escape 가 필요해진다 — 중첩 if 로 피한다.
+ */
+const PHOTO_FALLBACK =
+  "if(this.dataset.yt){if(!this.dataset.fb){this.dataset.fb=1;" +
+  "this.classList.remove('is-placeholder');this.classList.add('is-yt');" +
+  "this.src='https://i.ytimg.com/vi/'+this.dataset.yt+'/mqdefault.jpg';return;}}" +
+  "this.closest('.mp-slot').classList.add('is-gone');";
+const photoImg = (m) =>
+  `<img class="${m.ph ? 'is-placeholder' : ''}" src="./assets/members/${encodeURIComponent(m.file)}"` +
+  ` data-yt="${m.yt || ''}" alt="${m.name}" title="${m.name} (${m.real})" loading="lazy"` +
+  ` onerror="${PHOTO_FALLBACK}">`;
 const photoRow = (photo, cls) => {
   if (!photo) return '';
   const keys = (Array.isArray(photo) ? photo : [photo]).filter((k) => MEMBER_PHOTO[k]);
@@ -1861,12 +1882,7 @@ const photoRow = (photo, cls) => {
   return `<span class="${cls}${keys.length > 1 ? ' is-many' : ''}">${keys
     .map((k) => {
       const m = MEMBER_PHOTO[k];
-      const src = `./assets/members/${encodeURIComponent(m.file)}`;
-      // 사진은 저장소에 안 들어간다(소속사 자료). 없으면 깨진 그림 대신
-      // 이름 첫 글자를 넣은 자리를 남기고 조용히 넘어간다.
-      return `<i><span class="mp-slot" data-ini="${m.name.slice(0, 1)}">` +
-        `<img class="${m.ph ? 'is-placeholder' : ''}" src="${src}" alt="${m.name}" title="${m.name} (${m.real})" loading="lazy"` +
-        ` onerror="this.closest('.mp-slot').classList.add('is-gone')"></span>` +
+      return `<i><span class="mp-slot" data-ini="${m.name.slice(0, 1)}">${photoImg(m)}</span>` +
         `<b>${m.name}<em>${m.real}</em></b></i>`;
     })
     .join('')}</span>`;
@@ -3714,7 +3730,7 @@ if (memEl) {
     const born = mem.born ? `${formatDate(mem.born)} 생` : '';
     card.innerHTML = `
       <div class="mem-head">
-        <span class="mem-photo mp-slot" data-ini="${mem.name.slice(0, 1)}"><img class="${p.ph ? 'is-placeholder' : ''}" src="./assets/members/${encodeURIComponent(p.file || '')}" alt="" loading="lazy" onerror="this.closest('.mp-slot').classList.add('is-gone')"></span>
+        <span class="mem-photo mp-slot" data-ini="${mem.name.slice(0, 1)}">${photoImg(p)}</span>
         <div class="mem-id">
           <b class="mem-name"></b>
           <span class="mem-real"></span>

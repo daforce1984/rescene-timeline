@@ -650,6 +650,17 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   console.log(`   멤버 사진: 프로필 ${srcs.length}장 · 영상 화면 ${frames}장 · 없는 파일 ${missing.length}개 ${ok ? '✅' : '❌'}`);
   if (missing.length) console.log(`      ${missing.join(', ')}`);
   if (!ok) errs++;
+
+  // 파일이 없는 곳(GitHub Pages)에서도 얼굴이 뜨도록 유튜브 트레일러 썸네일로 떨어지는지.
+  // 사진 한 장마다 data-yt 가 붙어 있어야 하고, onerror 가 그 주소로 한 번만 되돌아야 한다.
+  const imgs = all.match(/<img[^>]*assets\/members[^>]*>/g) || [];
+  const withYt = imgs.filter((t) => /data-yt="[\w-]{6,}"/.test(t)).length;
+  const fbOk = imgs.every((t) => /i\.ytimg\.com/.test(t) && /dataset\.fb=1/.test(t) && /is-gone/.test(t));
+  // & 를 그대로 쓰면 HTML 속성에서 깨진다 — && 가 남아 있으면 실패
+  const amp = imgs.some((t) => /&&/.test(t));
+  const ok2 = imgs.length >= 10 && withYt === imgs.length && fbOk && !amp;
+  console.log(`   사진 대체: ${withYt}/${imgs.length}장에 유튜브 예비 · 3단 하강 ${fbOk ? '✅' : '❌'} · 속성 escape ${amp ? '❌ && 남음' : '✅'} ${ok2 ? '✅' : '❌'}`);
+  if (!ok2) errs++;
 }
 
 // 구간 이름표 — 높이가 맞는지, 누르면 그 구간으로 날아가는지
