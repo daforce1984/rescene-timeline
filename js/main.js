@@ -4028,9 +4028,11 @@ function bgmWant(x) {
  * (광고를 끄는 건 유튜브와 채널 사이의 문제라 이쪽에서 손댈 수 없다)
  * ------------------------------------------------------------------ */
 const BGM_ONE_I = BGM_HOME.i;
-const BGM_ONE_KEY = 'rescene.bgm.one';
+const BGM_ONE_KEY = 'rescene.bgm.mode';
 const bgmModeEl = document.getElementById('bgm-mode');
-let bgmOne = false;
+// 기본은 한 곡 고정이다 — 곡을 갈아 끼울 때마다 프리롤이 붙는 데다,
+// 배경음으로 깔리는 소리가 도중에 바뀌면 그때마다 시선이 그쪽으로 끌린다.
+let bgmOne = true;
 
 function setBgmOne(on, opts = {}) {
   bgmOne = !!on;
@@ -4042,7 +4044,7 @@ function setBgmOne(on, opts = {}) {
       ? `「${MVS[BGM_ONE_I].song}」 한 곡만 돈다 — 곡을 안 바꾸니 유튜브 프리롤이 처음 한 번으로 준다. 누르면 시간선 따라가기.`
       : '진행선이 마지막으로 지나온 MV 가 깔린다 — 곡이 바뀔 때마다 프리롤이 붙을 수 있다. 누르면 한 곡 고정.';
   }
-  if (opts.save !== false) { try { localStorage.setItem(BGM_ONE_KEY, bgmOne ? '1' : '0'); } catch {} }
+  if (opts.save !== false) { try { localStorage.setItem(BGM_ONE_KEY, bgmOne ? 'one' : 'line'); } catch {} }
   if (opts.sync === false) return;
   // 켜면 그 곡으로 한 번만 갈아 끼우고 그 뒤로는 가만히 둔다. 끄면 지금 자리의 곡으로 돌아간다.
   // 아직 시작 전(bgmTrack < 0)이면 bgmStart 가 알아서 그 곡으로 연다 — 여기서 예약할 필요가 없다.
@@ -4054,11 +4056,11 @@ if (bgmModeEl) {
   bgmModeEl.addEventListener('click', (e) => { e.stopPropagation(); setBgmOne(!bgmOne); });
 }
 {
-  // ?bgm=one / ?bgm=line 이 저장된 설정보다 우선한다
+  // ?bgm=one / ?bgm=line 이 저장된 설정보다 우선하고, 둘 다 없으면 기본값(한 곡)
   const q = new URLSearchParams(location.search).get('bgm');
-  let init = false;
+  let init = bgmOne;
   if (q === 'one' || q === 'line') init = q === 'one';
-  else { try { init = localStorage.getItem(BGM_ONE_KEY) === '1'; } catch {} }
+  else { try { const v = localStorage.getItem(BGM_ONE_KEY); if (v) init = v === 'one'; } catch {} }
   setBgmOne(init, { save: false, sync: false });
 }
 function bgmApplyTrack(i) {

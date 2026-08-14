@@ -90,6 +90,15 @@ const ytBgm = /youtube\.com\/watch\?v=/.test(bgm.src || '');
 console.log(`   배경음: ${bgm.src} · loop=${bgm.loop} ${ytBgm && bgm.loop ? '✅ 공식 MV' : '❌'}`);
 if (!ytBgm || !bgm.loop) errs++;
 {
+  // 기본은 한 곡 고정 — 곡이 도중에 안 바뀌어야 한다.
+  // 그 아래 곡 순서 검사는 「시간선」 쪽 길을 재는 것이므로, 여기서 한 번 넘겨 놓는다.
+  const bm = globalThis.window.__rescene.bgmMode;
+  const def = bm.one === true && (bm.el.textContent || '').trim() === '한 곡';
+  console.log(`   배경음 기본 모드: ${(bm.el.textContent || '').trim()} ${def ? '✅ 곡 안 바뀜' : '❌ 한 곡 이어야 함'}`);
+  if (!def) errs++;
+  clickOn('bgm-mode');                 // → 시간선 (아래 순서 검사용)
+}
+{
   // 약관상 플레이어는 200×200 이상으로 보여야 한다 — 숨기면 안 된다
   const css = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
   const box = /\.bgmp-frame \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
