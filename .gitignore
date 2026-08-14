@@ -3,10 +3,6 @@
 *.mp3
 *.bak
 
-# 멤버 프로필 사진 — 소속사 자료라 재배포하지 않는다.
-# 없으면 이름만 뜨고 나머지는 그대로 돈다.
-assets/members/
-
 node_modules/
 tools/.tmp/
 tools/three.module.js

@@ -3994,15 +3994,24 @@ let ytReady = false;
  * 갈아 끼울 땐 볼륨을 한 번 접었다 편다 — 뚝 바뀌면 사고처럼 들린다.
  */
 const MV_BY_X = MVS.map((mv, i) => ({ i, mv, x: dateToX(mv.date) })).sort((a, b) => a.x - b.x);
+/** 기준곡 — 재생을 여는 곡이자 「한 곡」 모드에서 도는 곡 (data.js 의 BGM) */
+const BGM_HOME = MV_BY_X.find((t) => t.mv.id === BGM.id) || MV_BY_X[0];
 let bgmTrack = -1;        // 지금 깔린 MV
 let bgmPending = -1;      // 접히고 나면 갈아 끼울 MV
 let bgmSwapK = 1;
 
-/** 그 지점에서 마지막으로 지나온 MV (아직 하나도 안 지났으면 첫 곡) */
+/**
+ * 그 지점에서 마지막으로 지나온 MV.
+ * 다만 **기준곡 자리에 닿기 전까지는 기준곡을 깐다.** 그냥 지나온 순서대로 깔면
+ * 재생을 켜자마자 예산이 모자라 반쪽으로 끊긴 선공개 MV(「YoYo」)가 흐른다 —
+ * 이 팀을 대표하는 곡으로 여는 편이 맞고, 기준곡은 어차피 제 날짜에 서 있으므로
+ * 뒤로 돌아가는 어색한 전환도 생기지 않는다.
+ */
 function mvAt(x) {
   let k = 0;
   for (let i = 0; i < MV_BY_X.length; i++) { if (MV_BY_X[i].x <= x) k = i; else break; }
-  return MV_BY_X[k];
+  const t = MV_BY_X[k];
+  return t.x < BGM_HOME.x ? BGM_HOME : t;
 }
 function bgmWant(x) {
   if (bgmOne) return;                     // 한 곡 고정 — 아무 것도 갈아 끼우지 않는다
@@ -4018,7 +4027,7 @@ function bgmWant(x) {
  * 처음 한 번으로 준다 — 광고를 없애는 게 아니라 횟수를 줄이는 것이다.
  * (광고를 끄는 건 유튜브와 채널 사이의 문제라 이쪽에서 손댈 수 없다)
  * ------------------------------------------------------------------ */
-const BGM_ONE_I = Math.max(0, MVS.findIndex((m) => m.id === BGM.id));
+const BGM_ONE_I = BGM_HOME.i;
 const BGM_ONE_KEY = 'rescene.bgm.one';
 const bgmModeEl = document.getElementById('bgm-mode');
 let bgmOne = false;

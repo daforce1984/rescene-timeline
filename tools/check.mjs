@@ -302,8 +302,11 @@ if (!clockOn || years.size < 3 || mds.size < 50) errs++;
   const ids = bgmSeq.map((b) => (b.src.match(/v=([\w-]+)/) || [])[1]);
   const idx = ids.map((id) => order.indexOf(id));
   const mono = idx.every((v, i) => i === 0 || v > idx[i - 1]);
-  const okSeq = bgmSeq.length >= 8 && mono && idx.every((v) => v >= 0);
-  console.log(`   배경음 곡 바뀜 ${bgmSeq.length}회 · MV 순서대로 ${mono ? '✅' : '❌ 뒤섞임'}`);
+  // 여는 곡은 기준곡(data.js 의 BGM)이어야 한다 — 반쪽으로 끊긴 선공개 MV 로 열면 안 된다
+  const { BGM } = await import(pathToFileURL(path.join(HERE, '.tmp', 'data.js')).href);
+  const first = ids[0] === BGM.id;
+  const okSeq = bgmSeq.length >= 8 && mono && idx.every((v) => v >= 0) && first;
+  console.log(`   배경음 곡 바뀜 ${bgmSeq.length}회 · MV 순서대로 ${mono ? '✅' : '❌ 뒤섞임'} · 여는 곡 ${MVS_NAME[ids[0]] || ids[0]} ${first ? '✅' : `❌ ${BGM.title} 여야 함`}`);
   console.log(`      ${ids.map((id, i) => (MVS_NAME[id] || id)).join(' → ')}`);
   console.log(`   전환 부드러움: 아주 작은 볼륨 구간 ${bgmSoft}프레임 ${bgmSoft > 20 ? '✅ 서서히 오르내림' : '❌ 툭 끊김'}`);
   if (!okSeq || bgmSoft <= 20) errs++;
