@@ -2849,15 +2849,16 @@ const formatViews = (n) =>
 
     // 캡션은 홀더의 자식이라 스크린을 그대로 따라다닌다
     const el = document.createElement('div');
-    el.className = `mv-card${mv.major ? ' is-major' : ''}`;
+    el.className = `mv-card${mv.major ? ' is-major' : ''}${mv.completedBy ? ' is-cut' : ''}`;
     el.innerHTML = `
       <span class="mv-play">▶</span>
       <span class="mv-text">
         <b>${mv.song}</b>
         <i>${mv.album}</i>
-        <u>${formatDate(mv.date)} · ${formatViews(mv.views)}</u>
+        <u>${formatDate(mv.date)} · ${formatViews(mv.views)}${mv.run ? ` · ${mv.run}` : ''}</u>
+        ${mv.note ? `<em class="mv-note${mv.completedBy ? ' is-cut' : ''}">${mv.note}</em>` : ''}
       </span>`;
-    el.title = `${mv.song} Official MV`;
+    el.title = mv.note ? `${mv.song} Official MV — ${mv.note}` : `${mv.song} Official MV`;
     el.addEventListener('pointerdown', (e) => e.stopPropagation());
     el.addEventListener('click', (e) => { e.stopPropagation(); openMv(i); });
     const card = new CSS2DObject(el);
@@ -2884,6 +2885,67 @@ const formatViews = (n) =>
   });
 
   scene.add(grp);
+}
+
+/* --- 6-i. 미완성 → 완성 실 -----------------------------------------
+ * 선공개 「YoYo」 MV 는 예산이 모자라 곡 전체를 찍지 못했다(1:47).
+ * 한 달 뒤 「UhUh」가 풀 버전(3:34)으로 다시 서서 공식 데뷔 타이틀이 된다.
+ * 두 노드를 화면 앞쪽(+Z)으로 얕게 감아 잇고, 실이 나아갈수록 색이 살아나게 해
+ * "반쪽으로 끊긴 것이 한 달 뒤 완성됐다"는 관계 자체를 보이게 만든다.
+ * ------------------------------------------------------------------ */
+
+const arcThreads = [];
+for (const src of mvScreens) {
+  if (!src.mv.completedBy) continue;
+  const dst = mvScreens.find((s) => s.mv.song === src.mv.completedBy);
+  if (!dst) continue;
+
+  const a = src.anchor.clone();
+  const b = dst.anchor.clone();
+  const dip = -58;          // 본류 아래로 살짝 — 메라디오 레인(-152)까지는 닿지 않는다
+  const front = 150;        // MV 스크린이 없는 앞쪽 통로를 쓴다
+  const curve = new THREE.CatmullRomCurve3(
+    [
+      a,
+      new THREE.Vector3(lerp(a.x, b.x, 0.26), a.y + dip * 0.8, front * 0.72),
+      new THREE.Vector3(lerp(a.x, b.x, 0.5), (a.y + b.y) / 2 + dip, front),
+      new THREE.Vector3(lerp(a.x, b.x, 0.74), b.y + dip * 0.8, front * 0.72),
+      b,
+    ],
+    false,
+    'centripetal',
+    0.5
+  );
+  curve.arcLengthDivisions = 400;
+
+  const mat = filamentMaterial({
+    glow: 0xffb14a, core: 0xfff0d8, intensity: 0.3, speed: 0.72, flowScale: 4.2,
+    headFade: 0.02, tailFade: 0.02, rimPower: 2.1, grain: 0.42,
+    // 데뷔 전(거의 흑백)에서 출발해 「UhUh」에 닿으며 색이 돈다
+    sat: [SAT[0], SAT[1], SAT[1]], satU: [0.62, 0.99],
+  });
+  // 출발이 가늘고 도착이 굵다 — 반쪽에서 완성으로
+  const thread = new THREE.Mesh(taperedTube(curve, (u) => 0.42 + u * 1.05, 200, 6), mat);
+  scene.add(thread);
+
+  const mid = curve.getPoint(0.5);
+  const el = document.createElement('div');
+  el.className = 'arc-chip';
+  el.innerHTML = `<b>${src.mv.run} → ${dst.mv.run}</b><span>미완성 → 완성</span>`;
+  el.title = `${src.mv.song} — ${src.mv.note} / ${dst.mv.song} — ${dst.mv.note}`;
+  el.addEventListener('pointerdown', (e) => e.stopPropagation());
+  el.addEventListener('click', (e) => { e.stopPropagation(); openMv(dst.i); });
+  const chipPos = mid.clone().add(new THREE.Vector3(0, -34, 0));
+  const chip = new CSS2DObject(el);
+  chip.position.copy(chipPos);
+  scene.add(chip);
+  const leader = makeLeader(mid, chipPos, 0xffb14a);
+  scene.add(leader);
+
+  // 완성 지점에 닿아야 나타난다 — 재생 중엔 「UhUh」를 지날 때 그려진다
+  revealAt(b.x, thread, chip, leader);
+  declutter.push({ obj: chip, el, base: chipPos.clone(), from: mid.clone(), leader, kind: 'label' });
+  arcThreads.push({ src, dst, mat, el, mid: mid.clone(), chipPos: chipPos.clone(), phase: rng() * Math.PI * 2 });
 }
 
 /* ==================================================================
@@ -3609,13 +3671,15 @@ const galEl = document.getElementById('mvgal');
   MVS.forEach((mv, i) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `mvg-item${mv.major ? ' is-major' : ''}`;
+    btn.className = `mvg-item${mv.major ? ' is-major' : ''}${mv.completedBy ? ' is-cut' : ''}`;
     btn.innerHTML = `
       <span class="mvg-thumb"><img src="https://i.ytimg.com/vi/${mv.id}/mqdefault.jpg" alt="" loading="lazy"><em>▶</em></span>
-      <span class="mvg-text"><b></b><i></i><u></u></span>`;
+      <span class="mvg-text"><b></b><i></i><u></u>${mv.note ? '<s></s>' : ''}</span>`;
     btn.querySelector('b').textContent = mv.song;
     btn.querySelector('i').textContent = mv.album;
-    btn.querySelector('u').textContent = `${formatDate(mv.date)} · ${formatViews(mv.views)}`;
+    btn.querySelector('u').textContent =
+      `${formatDate(mv.date)} · ${formatViews(mv.views)}${mv.run ? ` · ${mv.run}` : ''}`;
+    if (mv.note) btn.querySelector('s').textContent = mv.note;
     btn.addEventListener('click', () => { closeGallery(); openMv(i); });
     list.appendChild(btn);
   });
@@ -4935,6 +4999,8 @@ function updateLabelLod() {
   for (const sl of sideLines) for (const t of sl.items) setLod(t.el, 'is-far', t.pos.distanceTo(p) > LOD_FAR);
   for (const sh of shames) setLod(sh.el, 'is-far', sh.pos.distanceTo(p) > LOD_FAR * 1.5);
   for (const d of digThreads) setLod(d.el, 'is-far', d.chipPos.distanceTo(p) > LOD_FAR * 1.6);
+  // 데뷔가 들어 있는 2024 조망까지는 남기고, 전체 조망에서만 접는다
+  for (const a of arcThreads) setLod(a.el, 'is-far', a.chipPos.distanceTo(p) > LOD_WIDE);
 }
 
 function tick() {
@@ -5172,6 +5238,17 @@ function tick() {
     d.el.classList.toggle('is-selected', on);
   }
 
+  for (const a of arcThreads) {
+    a.mat.uniforms.uTime.value = time;
+    // 어느 쪽 MV 를 짚어도 같이 살아난다 — 둘이 한 쌍이라는 걸 그 자리에서 알린다
+    const on =
+      hoveredMv === a.src.i || hoveredMv === a.dst.i ||
+      play.focusMv === a.src.i || play.focusMv === a.dst.i;
+    a.mat.uniforms.uSelected.value = lerp(a.mat.uniforms.uSelected.value, on ? 1 : 0, 0.12);
+    a.mat.uniforms.uFlicker.value = (on ? 1.7 : 0.9) + Math.sin(time * 2.1 + a.phase) * 0.08;
+    a.el.classList.toggle('is-selected', on);
+  }
+
   // 재생 — 진행선을 밀고, 카메라가 따라간다
   if (play.active && watchingVideo()) {
     // 영상 보는 중 — 진행선도 카메라도 소개 카드도 그 자리에 세워 둔다.
@@ -5331,6 +5408,6 @@ if (startId) {
 }
 
 // 콘솔·검사기에서 상태를 들여다보기 위한 읽기용 핸들
-window.__rescene = { declutter, branches, mvScreens, radios, drives, shames, staffs, sideLines, bgm, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
+window.__rescene = { declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
 
 tick();

@@ -503,6 +503,32 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (!ok) errs++;
 }
 
+// YoYo(미완성) → UhUh(완성) — 실이 두 노드를 잇고, 완성 지점에 닿아야 보이는지
+{
+  const api = globalThis.window.__rescene;
+  const arcs = api.arcThreads || [];
+  const a = arcs[0];
+  const yo = api.mvScreens.find((s) => s.mv.song === 'YoYo');
+  const uh = api.mvScreens.find((s) => s.mv.song === 'UhUh');
+  // 카드에 사연이 붙었는지 (반쪽 MV 는 점선 테두리)
+  const noteOk =
+    /예산/.test(yo.el.textContent) && /1:47/.test(yo.el.textContent) &&
+    /완성/.test(uh.el.textContent) && /3:34/.test(uh.el.textContent) &&
+    /is-cut/.test(yo.el.className) && !/is-cut/.test(uh.el.className);
+  // 실이 UhUh 에 닿을 때 드러나는지 (YoYo 지점에서 미리 뜨면 안 된다)
+  const rv = api.revealables.find((r) => r.objs.some((o) => o.element && /arc-chip/.test(o.element.className || '')));
+  const revealOk = !!rv && Math.abs(rv.x - uh.anchor.x) < 1 && rv.x > yo.anchor.x;
+  const chipTxt = a ? (a.el.textContent || '').replace(/\s+/g, ' ').trim() : '';
+  const linkOk = arcs.length === 1 && a.src.mv.song === 'YoYo' && a.dst.mv.song === 'UhUh' &&
+    /1:47 → 3:34/.test(chipTxt) && /미완성 → 완성/.test(chipTxt);
+  const ok = noteOk && revealOk && linkOk;
+  console.log(
+    `   미완성→완성 실 ${arcs.length}개 · "${chipTxt}" · 카드 사연 ${noteOk ? '✅' : '❌'} · ` +
+    `완성 지점(x ${rv ? rv.x.toFixed(0) : '?'})에서 등장 ${revealOk ? '✅' : '❌'} ${ok ? '✅' : '❌'}`
+  );
+  if (!ok) errs++;
+}
+
 // 재생 중 PHASE 이름표가 진행선보다 앞서 뜨지 않는지
 {
   const api = globalThis.window.__rescene;

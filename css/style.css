@@ -1292,6 +1292,43 @@ body.is-ready #loader { opacity: 0; visibility: hidden; }
 }
 .dig-chip.is-far:not(.is-selected) { opacity: 0; pointer-events: none; }
 
+/* 미완성 → 완성 실에 달리는 칩 (YoYo → UhUh).
+   파묘 칩과 같은 계열이되, 점선 대신 왼쪽 굵은 선으로 "이어짐"을 보인다. */
+.arc-chip {
+  pointer-events: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border: 1px solid rgba(255, 178, 90, 0.5);
+  border-left: 3px solid rgba(255, 200, 120, 0.85);
+  border-radius: 4px;
+  background: rgba(28, 15, 7, 0.86);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  user-select: none;
+  /* transform 은 CSS2DRenderer 가 매 프레임 갱신한다 — 절대 트랜지션 걸지 말 것 */
+  transition: background 0.18s ease, box-shadow 0.18s ease, opacity 0.25s ease;
+}
+.arc-chip b { color: rgba(255, 238, 214, 0.94); font-weight: 500; }
+.arc-chip span {
+  font-family: var(--sans);
+  letter-spacing: 0.02em;
+  color: rgba(255, 190, 130, 0.78);
+  border-left: 1px solid rgba(255, 178, 90, 0.28);
+  padding-left: 6px;
+}
+.arc-chip:hover { background: rgba(255, 160, 70, 0.24); box-shadow: 0 0 14px rgba(255, 170, 70, 0.45); }
+.arc-chip.is-selected {
+  background: rgba(255, 168, 74, 0.3);
+  border-color: rgba(255, 226, 180, 0.9);
+  box-shadow: 0 0 22px rgba(255, 175, 75, 0.6);
+}
+.arc-chip.is-far:not(.is-selected) { opacity: 0; pointer-events: none; }
+
 /* 누르면 그 구간 첫머리로 날아간다 */
 .era-label.is-jump { pointer-events: auto; cursor: pointer; }
 .era-label.is-jump:hover { border-left-color: rgba(255, 200, 120, 0.9); }
@@ -1368,6 +1405,25 @@ body.is-ready #loader { opacity: 0; visibility: hidden; }
   letter-spacing: 0.04em;
   color: rgba(255, 172, 100, 0.62);
 }
+/* 카드 한 줄 사연 — 카드 자체는 nowrap 이라 여기서만 줄바꿈을 허용한다 */
+.mv-text .mv-note {
+  margin-top: 2px;
+  max-width: 210px;
+  font-style: normal;
+  font-size: 9px;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: keep-all;
+  color: rgba(255, 208, 160, 0.7);
+}
+.mv-text .mv-note.is-cut {
+  padding-left: 6px;
+  border-left: 2px solid rgba(255, 150, 60, 0.55);
+  color: rgba(255, 186, 132, 0.78);
+}
+/* 반쪽으로 끊긴 MV 는 테두리도 끊어 보이게 */
+.mv-card.is-cut { border-style: dashed; }
+
 .mv-card.is-major { border-color: rgba(255, 205, 125, 0.8); box-shadow: 0 0 30px rgba(255, 145, 45, 0.38); }
 .mv-card.is-major .mv-text b { font-size: 12.5px; }
 .mv-card:hover,
@@ -1379,7 +1435,8 @@ body.is-ready #loader { opacity: 0; visibility: hidden; }
 /* 멀리서는 곡 제목만 */
 .mv-card.is-compact:not(:hover):not(.is-hot) { min-width: 0; padding: 3px 8px 3px 5px; }
 .mv-card.is-compact:not(:hover):not(.is-hot) .mv-text i,
-.mv-card.is-compact:not(:hover):not(.is-hot) .mv-text u { display: none; }
+.mv-card.is-compact:not(:hover):not(.is-hot) .mv-text u,
+.mv-card.is-compact:not(:hover):not(.is-hot) .mv-text .mv-note { display: none; }
 
 /* ==================================================================
    MV 갤러리
@@ -1497,6 +1554,17 @@ body.is-ready #loader { opacity: 0; visibility: hidden; }
   letter-spacing: 0.06em;
   color: rgba(255, 172, 100, 0.6);
 }
+.mvg-text s {
+  margin-top: 5px;
+  padding-left: 7px;
+  border-left: 2px solid rgba(255, 150, 60, 0.5);
+  text-decoration: none;
+  font-size: 10.5px;
+  line-height: 1.45;
+  word-break: keep-all;
+  color: rgba(255, 198, 150, 0.72);
+}
+.mvg-item.is-cut { border-style: dashed; }
 
 @media (max-width: 900px) {
   .mvgal { padding: 20px 14px; }

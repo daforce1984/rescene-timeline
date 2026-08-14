@@ -582,10 +582,25 @@ export const KINDS = {
  *
  * lift  : 스크린을 띄우는 높이. 날짜가 붙은 MV 끼리는 두 단(104 / 188)을 번갈아 쓴다.
  * major : 스크린을 더 크고 밝게
+ * note  : 카드 아래에 붙는 한 줄 사연
+ * completedBy / completesFrom : 미완성 → 완성으로 이어지는 한 쌍(실로 잇는다)
  */
 export const MVS = [
-  { id: 'uDYy2UyO1X4', song: 'YoYo', album: '선공개 싱글 《YoYo》', date: '2024-02-28', views: 7976427, line: 'main', lift: 104, noPlay: true },
-  { id: 'zpSejlkSXLA', song: 'UhUh', album: '싱글 1집 《Re:Scene》', date: '2024-03-26', views: 15415976, line: 'main', lift: 188, major: true },
+  /* 선공개 「YoYo」 — 데뷔 4주 전.
+   * 예산이 모자라 곡 전체를 영상으로 만들지 못했다. 실제 러닝타임 1:47.
+   * 한 달 뒤 「UhUh」가 3:34 풀 버전으로 서면서 공식 데뷔 타이틀이 된다. */
+  {
+    id: 'uDYy2UyO1X4', song: 'YoYo', album: '선공개 싱글 《YoYo》', date: '2024-02-28',
+    views: 7976427, line: 'main', lift: 104, noPlay: true,
+    run: '1:47', note: '예산이 모자라 곡 전체를 못 찍은 반쪽짜리 선공개 MV',
+    completedBy: 'UhUh',
+  },
+  {
+    id: 'zpSejlkSXLA', song: 'UhUh', album: '싱글 1집 《Re:Scene》', date: '2024-03-26',
+    views: 15415976, line: 'main', lift: 188, major: true,
+    run: '3:34', note: '한 달 뒤 풀 버전으로 완성 — 이쪽이 공식 데뷔곡',
+    completesFrom: 'YoYo',
+  },
   { id: '9XttLI0oH0I', song: 'LOVE ATTACK', album: '미니 1집 《SCENEDROME》', date: '2024-08-27', views: 23300743, line: 'main', lift: 104, major: true },
   { id: 'B8JJ8RNM-60', song: 'Pinball', album: '미니 1집 《SCENEDROME》', date: '2024-09-21', views: 9459176, line: 'main', lift: 188 },
   { id: 'h0xUtrb_JBc', song: 'Glow Up', album: '미니 2집 《Glow Up》', date: '2025-02-05', views: 14715534, line: 'main', lift: 104 },
@@ -753,9 +768,9 @@ export const EVENTS = [
     kind: 'debut',
     photo: ['woni', 'liv', 'minami', 'may', 'zena'],
     title: '싱글 1집 《Re:Scene》 · 공식 데뷔',
-    meta: '타이틀 「UhUh」 · 데뷔 쇼케이스',
+    meta: '타이틀 「UhUh」 · 데뷔 쇼케이스 · 「YoYo」의 완성형',
     desc:
-      '더뮤즈엔터테인먼트 소속 5인조(WONI · LIV · MINAMI · MAY · ZENA)로 정식 데뷔. 팀명은 “향기로 다시(RE) 장면(SCENE)을 떠올린다”는 뜻. 이날부터 2년간 1,500편이 넘는 라이브·영상 콘텐츠가 쌓이기 시작한다.',
+      '더뮤즈엔터테인먼트 소속 5인조(WONI · LIV · MINAMI · MAY · ZENA)로 정식 데뷔. 팀명은 “향기로 다시(RE) 장면(SCENE)을 떠올린다”는 뜻. 한 달 전 선공개한 「YoYo」 뮤직비디오는 예산이 모자라 곡 전체를 영상으로 만들지 못하고 1분 47초에서 끊겼다. 「UhUh」는 그 기획을 3분 34초 풀 버전으로 다시 세운 완성형이고, 공식 데뷔곡은 이쪽이다. 이날부터 2년간 1,500편이 넘는 라이브·영상 콘텐츠가 쌓이기 시작한다.',
     angle: 15,
     length: 128,
     labelOff: [-5, -10],
