@@ -2543,6 +2543,9 @@ body.is-playing .play-strip { pointer-events: auto; }
 .mem-fam li b { color: rgba(255, 214, 160, 0.92); }
 
 .hud-nav .is-member { color: #ffe0b0; border-color: rgba(255, 190, 120, 0.4); }
+/* 회차 목록 두 개 — 범례에서 그 줄기에 쓴 색을 그대로 가져온다 */
+.hud-nav .is-radio { color: #ffc06a; border-color: rgba(255, 192, 106, 0.4); }
+.hud-nav .is-drive { color: #ffa876; border-color: rgba(255, 168, 118, 0.4); }
 
 @media (max-width: 700px) {
   .memgal-list { grid-template-columns: 1fr; }

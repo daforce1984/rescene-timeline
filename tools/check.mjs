@@ -50,7 +50,7 @@ try {
 if (failed) process.exit(1);
 
 const { byId, handlers, frames, fakeClock, audios } = await import('./dom.mjs');
-const { MVS } = await import(pathToFileURL(path.join(HERE, '.tmp', 'data.js')).href);
+const { MVS, RADIO, DRIVE } = await import(pathToFileURL(path.join(HERE, '.tmp', 'data.js')).href);
 const MVS_NAME = Object.fromEntries(MVS.map((m) => [m.id, m.song]));
 console.log('✅ 모듈 실행 통과 — body.is-ready:', globalThis.document.body.classList.contains('is-ready'),
             '· DOM id', byId.size, '· 핸들러', handlers.length);
@@ -970,6 +970,51 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
     + ` · 픽셀·MSAA ${dpr && msaa ? '✅ 낮춤' : '❌'} · 데스크톱 오판 ${notLow ? '✅ 없음' : '❌'}`
     + ` · 라벨 흐림 ${noBlur ? '✅ 끔' : '❌'} · 필름그레인 ${noGrain ? '✅ 끔' : '❌'}`);
   if (heavy || !debounced || !dpr || !msaa || !notLow || !noBlur || !noGrain) errs++;
+}
+
+// 회차 목록 — 메라디오 · 나의 연수아저씨.
+// 시간선 위에 점으로 흩어져 있는 회차를 한자리에 모아 놓은 목록이다.
+{
+  const list = byIdEl('eplist-list');
+  const gal = byIdEl('eplist');
+  const shows = [
+    { key: 'btn-radio', show: RADIO },
+    { key: 'btn-drive', show: DRIVE },
+  ];
+  const lines = [];
+  let ok = true;
+  for (const { key, show } of shows) {
+    clickOn(key);
+    const opened = gal._classes.has('is-open');
+    const n = list.children.length;
+    const name = (byIdEl('ep-name').textContent || '').trim();
+    const count = (byIdEl('ep-count').textContent || '').trim();
+    // 회차마다 썸네일이 그 영상 것이어야 한다 (아무거나 붙여 놓으면 안 된다)
+    const thumbs = list.children.filter((c, i) =>
+      new RegExp(`i\\.ytimg\\.com/vi/${show.episodes[i].id}/`).test(c.innerHTML || '')).length;
+    clickOn(key);                                    // 같은 걸 다시 누르면 닫힌다
+    const toggled = !gal._classes.has('is-open');
+    // 누르면 그 회차가 바로 열린다
+    clickOn(key);
+    const first = list.children[0];
+    fire(`click ${show.id} 1회`, (h) => h.el === first && h.type === 'click');
+    const playing = byIdEl('player')._classes.has('is-open')
+      && (byIdEl('player-link').href || '').includes(show.episodes[0].id);
+    clickOn('player-close');
+    const good = opened && n === show.episodes.length && thumbs === n && playing && toggled
+      && name === show.label && count === String(n);
+    if (!good) ok = false;
+    lines.push(`${show.label} ${n}회 · 썸네일 ${thumbs}/${n} · 열림 ${opened ? '✅' : '❌'}`
+      + ` · 눌러서 재생 ${playing ? '✅' : '❌'} · 다시 눌러 닫힘 ${toggled ? '✅' : '❌'}`);
+  }
+  // 다른 목록을 누르면 앞의 것은 닫힌다 (겹쳐 뜨면 안 된다)
+  clickOn('btn-radio');
+  clickOn('btn-mv');
+  const swap = !gal._classes.has('is-open') && byIdEl('mvgal')._classes.has('is-open');
+  clickOn('mvgal-close');
+  if (!swap) ok = false;
+  console.log(`   회차 목록: ${lines.join(' | ')} · MV 갤러리와 겹치지 않음 ${swap ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
 }
 
 // 좁은 화면 정리 — 버튼 줄이 화면 밖으로 밀려 나가면 안 된다

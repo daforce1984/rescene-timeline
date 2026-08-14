@@ -112,6 +112,7 @@
         <li><kbd>클릭</kbd> — 분기 사건 상세 · <kbd>▶</kbd> 표시는 영상 있음</li>
         <li><kbd>MV 스크린</kbd> 클릭 — 타이틀곡 MV 재생 · <kbd>M</kbd> 모아보기</li>
         <li><kbd>멤버</kbd> 또는 <kbd>P</kbd> — 본명 · 별명 · 가족 소개</li>
+        <li><kbd>메라디오</kbd> <kbd>R</kbd> · <kbd>연수아저씨</kbd> <kbd>D</kbd> — 회차 목록</li>
         <li><kbd>연도 이름표</kbd> 클릭 — 그 구간 첫머리로 이동</li>
         <li><kbd>▶ 재생</kbd> / <kbd>Space</kbd> — 데뷔부터 자라나는 연출</li>
         <li>재생 중 <kbd>클릭</kbd> 다음으로 · <kbd>←</kbd> <kbd>→</kbd> 사건 건너뛰기</li>
@@ -143,6 +144,8 @@
       <button id="btn-play" type="button" class="is-play">▶ 재생</button>
       <button id="btn-members" type="button" class="is-member" aria-label="멤버 소개">멤버</button>
       <button id="btn-mv" type="button" class="is-mv" aria-label="타이틀곡 MV 모아보기">▶ MV</button>
+      <button id="btn-radio" type="button" class="is-radio" aria-label="메라디오 회차 목록">메라디오</button>
+      <button id="btn-drive" type="button" class="is-drive" aria-label="나의 연수아저씨 회차 목록">연수아저씨</button>
       <button id="btn-next" type="button" aria-label="다음 사건">▶</button>
     </nav>
 
@@ -231,6 +234,21 @@
           <button id="memgal-close" type="button" aria-label="닫기">✕</button>
         </header>
         <div id="memgal-list" class="memgal-list"></div>
+      </div>
+    </div>
+
+    <!-- 회차 목록 — 메라디오 · 나의 연수아저씨.
+         껍데기는 MV 갤러리와 같은 것을 쓴다 (같은 성격의 목록이라 다르게 보일 이유가 없다).
+         안쪽은 누른 프로그램에 따라 그때그때 채운다. -->
+    <div id="eplist" class="mvgal" aria-hidden="true">
+      <div class="mvgal-inner">
+        <header>
+          <span class="lg-title" id="ep-sub"></span>
+          <h2><span id="ep-name"></span> <em id="ep-count"></em></h2>
+          <p id="ep-desc"></p>
+          <button id="eplist-close" type="button" aria-label="닫기">✕</button>
+        </header>
+        <div id="eplist-list" class="mvgal-list"></div>
       </div>
     </div>
 

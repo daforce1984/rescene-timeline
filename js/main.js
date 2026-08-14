@@ -3727,6 +3727,7 @@ const galEl = document.getElementById('mvgal');
 }
 function openGallery() {
   if (typeof memEl !== 'undefined' && memEl) closeMembers();
+  closeEpisodes();
   galEl.classList.add('is-open');
   galEl.setAttribute('aria-hidden', 'false');
 }
@@ -3797,12 +3798,81 @@ if (memEl) {
 }
 function openMembers() {
   closeGallery();
+  closeEpisodes();
   memEl.classList.add('is-open');
   memEl.setAttribute('aria-hidden', 'false');
 }
 function closeMembers() {
   memEl.classList.remove('is-open');
   memEl.setAttribute('aria-hidden', 'true');
+}
+
+/* --- 회차 목록 — 메라디오 · 나의 연수아저씨 ---------------------------
+ * 시간선 위에 점으로 흩어져 있는 회차를 한자리에 모아 놓는다.
+ * 껍데기는 MV 갤러리와 같은 것을 쓴다 — 같은 성격의 목록이라 다르게 보일 이유가 없다.
+ * 안쪽만 누른 프로그램에 맞춰 그때그때 채운다 (한 번 채우면 다시 안 만든다).
+ * ------------------------------------------------------------------ */
+
+const epEl = document.getElementById('eplist');
+const epListEl = document.getElementById('eplist-list');
+const epNameEl = document.getElementById('ep-name');
+const epCountEl = document.getElementById('ep-count');
+const epSubEl = document.getElementById('ep-sub');
+const epDescEl = document.getElementById('ep-desc');
+let epShow = null;
+
+function renderEpisodes(show) {
+  if (!epListEl) return;
+  const eps = show.episodes || [];
+  epListEl.innerHTML = '';
+  if (epSubEl) epSubEl.textContent = show.sub || '';
+  if (epNameEl) epNameEl.textContent = show.label;
+  if (epCountEl) epCountEl.textContent = String(eps.length);
+  if (epDescEl) epDescEl.textContent = `${show.caption}. 클릭하면 바로 재생됩니다.`;
+  eps.forEach((ep, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mvg-item';
+    btn.innerHTML = `
+      <span class="mvg-thumb"><img src="https://i.ytimg.com/vi/${ep.id}/mqdefault.jpg" alt="" loading="lazy"><em>▶</em></span>
+      <span class="mvg-text"><b></b><i></i><u></u></span>`;
+    btn.querySelector('b').textContent = ep.title;
+    btn.querySelector('i').textContent = `${i + 1}회`;
+    btn.querySelector('u').textContent = `${formatDate(ep.date)} · ${formatViews(ep.views)}`;
+    btn.title = ep.title;
+    btn.addEventListener('click', () => {
+      closeEpisodes();
+      openPlayer({ id: ep.id, t: `${show.label} — ${ep.title}` });
+    });
+    epListEl.appendChild(btn);
+  });
+}
+function openEpisodes(show) {
+  if (!epEl) return;
+  closeGallery();
+  if (memEl) closeMembers();
+  if (epShow !== show) { renderEpisodes(show); epShow = show; }
+  epEl.classList.add('is-open');
+  epEl.setAttribute('aria-hidden', 'false');
+}
+function closeEpisodes() {
+  if (!epEl) return;
+  epEl.classList.remove('is-open');
+  epEl.setAttribute('aria-hidden', 'true');
+}
+/** 같은 프로그램을 다시 누르면 닫고, 다른 프로그램이면 그쪽으로 갈아 끼운다 */
+function toggleEpisodes(show) {
+  if (epEl && epEl.classList.contains('is-open') && epShow === show) closeEpisodes();
+  else openEpisodes(show);
+}
+if (epEl) {
+  const close = document.getElementById('eplist-close');
+  if (close) close.addEventListener('click', () => closeEpisodes());
+  epEl.addEventListener('click', (e) => { if (e.target === epEl) closeEpisodes(); });
+  const rb = document.getElementById('btn-radio');
+  if (rb) rb.addEventListener('click', () => toggleEpisodes(RADIO));
+  const db = document.getElementById('btn-drive');
+  if (db) db.addEventListener('click', () => toggleEpisodes(DRIVE));
 }
 /* --- 조작 안내 접기 ---------------------------------------------- */
 
@@ -5144,9 +5214,17 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') closeMembers();
     return;
   }
+  if (epEl && epEl.classList.contains('is-open')) {
+    if (e.key === 'Escape') closeEpisodes();
+    else if (e.key === 'r' || e.key === 'R') toggleEpisodes(RADIO);
+    else if (e.key === 'd' || e.key === 'D') toggleEpisodes(DRIVE);
+    return;
+  }
   if (e.key === ' ') { e.preventDefault(); togglePlay(); }
   else if (e.key === 'm' || e.key === 'M') openGallery();
   else if (e.key === 'p' || e.key === 'P') openMembers();
+  else if (e.key === 'r' || e.key === 'R') toggleEpisodes(RADIO);
+  else if (e.key === 'd' || e.key === 'D') toggleEpisodes(DRIVE);
   else if (e.key === 'c' || e.key === 'C') toggleHelp();
   else if (e.key === 'b' || e.key === 'B') toggleLegend();
   // 재생 중에는 좌우 키가 사건 단위 건너뛰기, 아닐 때는 사건 선택 이동
