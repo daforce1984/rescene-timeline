@@ -38,6 +38,15 @@
     <canvas id="scene"></canvas>
     <!-- CSS2DRenderer 의 라벨 레이어가 여기에 삽입된다 -->
 
+    <!-- 배경음 영상이 내려앉는 자리.
+         광고가 끝나고 곡이 실제로 시작되면, 우상단 모니터에 있던 화면이
+         여기로 펼쳐지며 우주 배경으로 깔린다 (영상만 — 테두리도 글자도 안 따라온다).
+         DOM 에서 iframe 을 옮기면 유튜브가 처음부터 다시 물기 때문에,
+         화면(#bgm-frame)은 처음부터 여기 있고 **자리만** 옮겨 다닌다. -->
+    <div id="bgm-stage" class="bgm-stage" aria-hidden="true">
+      <div id="bgm-frame" class="bgmp-frame"></div>
+    </div>
+
     <div id="bang-flash" class="bang-flash" aria-hidden="true"></div>
     <div class="vignette" aria-hidden="true"></div>
     <div class="grain" aria-hidden="true"></div>
@@ -154,7 +163,8 @@
          그래서 숨기지 않고 우상단에 작은 모니터로 띄운다. -->
     <div id="bgm-player" class="bgm-player" aria-hidden="true">
       <span class="bgmp-cap"><i></i>NOW PLAYING</span>
-      <div id="bgm-frame" class="bgmp-frame"></div>
+      <!-- 화면이 앉을 자리만 잡아 두는 빈 칸 (실제 화면은 #bgm-stage 안에 있다) -->
+      <div id="bgm-slot" class="bgmp-slot"></div>
       <span class="bgmp-meta"><b>LOVE ATTACK</b><em>미니 1집 《SCENEDROME》</em><button id="bgm-mode" class="bgmp-mode" type="button" aria-pressed="false">시간선</button></span>
     </div>
 
@@ -221,6 +231,38 @@
         <div class="player-meta">
           <span id="player-title"></span>
           <a id="player-link" href="#" target="_blank" rel="noopener noreferrer">유튜브에서 열기 ↗</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- 재생을 열기 전에 한 번 묻는다.
+         「소리와 함께」면 유튜브를 먼저 물려 놓고, 광고가 끝나 곡이 실제로 시작되는
+         순간에 시간선이 자라기 시작한다 — 광고 보는 동안 연출이 혼자 지나가 버리지 않게. -->
+    <div id="bgm-ask" class="bgm-ask" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="ask-title">
+      <div class="ask-card">
+        <span class="lg-title">TIMELINE 재생</span>
+
+        <div class="ask-pane ask-pick">
+          <h2 id="ask-title">배경음을 틀까요?</h2>
+          <p>공식 MV <b>「LOVE ATTACK」</b> 을 유튜브로 그대로 틉니다.
+            광고가 먼저 붙을 수 있는데, <b>광고가 끝나고 곡이 시작되면</b> 그때 시간선이 자라기 시작합니다.
+            영상은 우주 배경으로 옅게 깔립니다.</p>
+          <div class="ask-btns">
+            <button id="ask-yes" class="ask-btn is-yes" type="button">소리와 함께</button>
+            <button id="ask-no" class="ask-btn" type="button">소리 없이</button>
+          </div>
+          <span class="ask-foot">소리는 재생 중 <b>🔊</b> 로 언제든 끌 수 있습니다 · <kbd>Esc</kbd> 취소</span>
+        </div>
+
+        <div class="ask-pane ask-wait">
+          <h2>광고가 끝나기를 기다리는 중…</h2>
+          <p>오른쪽 위 화면에서 지나가는 게 보입니다. <b>곡이 시작되는 순간</b> 시간선이 자라기 시작합니다.</p>
+          <div class="ask-bar" aria-hidden="true"><i id="ask-bar"></i></div>
+          <div class="ask-btns">
+            <button id="ask-skip" class="ask-btn is-yes" type="button">기다리지 않고 시작</button>
+            <button id="ask-cancel" class="ask-btn" type="button">취소</button>
+          </div>
+          <span class="ask-foot">유튜브가 안 뜨면 잠시 뒤 알아서 시작합니다</span>
         </div>
       </div>
     </div>

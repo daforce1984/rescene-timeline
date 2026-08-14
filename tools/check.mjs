@@ -98,13 +98,15 @@ if (!ytBgm || !bgm.loop) errs++;
   if (!def) errs++;
   clickOn('bgm-mode');                 // → 시간선 (아래 순서 검사용)
 }
+const CSS = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
 {
-  // 약관상 플레이어는 200×200 이상으로 보여야 한다 — 숨기면 안 된다
-  const css = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
-  const box = /\.bgmp-frame \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
-  const mob = /@media \(max-width: 900px\)[\s\S]{0,400}?\.bgmp-frame \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
+  // 약관상 플레이어는 200×200 이상으로 보여야 한다 — 숨기면 안 된다.
+  // 화면이 앉을 크기는 카드 안의 빈 칸(.bgmp-slot)이 정한다.
+  const css = CSS;
+  const box = /\.bgmp-slot \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
+  const mob = /@media \(max-width: 900px\)[\s\S]{0,400}?\.bgmp-slot \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
   const okSize = box && +box[1] >= 200 && +box[2] >= 200 && mob && +mob[1] >= 200 && +mob[2] >= 200;
-  const hidden = /\.bgm-player[^{]*\{[^}]*display:\s*none/.test(css);
+  const hidden = /\.bgm-player\s*\{[^}]*display:\s*none/.test(css) || /\.bgmp-frame\s*\{[^}]*display:\s*none/.test(css);
   // 상단 머리글(≈110px)을 안 가리고, 소개 띠 글자줄(화면 아래 258px)에도 안 닿아야 한다
   const top = /\.bgm-player \{[\s\S]*?top:\s*(\d+)px/.exec(css);
   const cardH = 200 + 40;                       // 창 + 캡션/제목 줄
@@ -115,8 +117,22 @@ if (!ytBgm || !bgm.loop) errs++;
   if (!okSize || hidden || !okPos) errs++;
 }
 
-// 1) 클릭 = 다음으로 넘어가기 (짧은 세션으로 따로 확인)
-clickOn('btn-play');
+// 1) 재생을 열기 전 물음 → 광고 대기 → 시작
+{
+  const api = globalThis.window.__rescene;
+  const g = api.askGate;
+  clickOn('btn-play');
+  const asked = g.el._classes.has('is-on') && g.choice === null && !api.play.active;
+  // 「소리와 함께」 — 유튜브는 물리되 시간선은 아직 안 자란다
+  clickOn('ask-yes');
+  step(12);
+  const waiting = g.waiting && !api.play.active && g.el._classes.has('is-wait') && bgm.plays > 0;
+  // 유튜브가 아예 안 뜨는 환경에서도 갇히면 안 된다 — 기다리지 않고 시작
+  clickOn('ask-skip');
+  const started = api.play.active && !g.waiting && !g.el._classes.has('is-on') && g.done;
+  console.log(`   재생 전 물음: ▶ → 물음 ${asked ? '✅' : '❌'} · 「소리와 함께」 → 광고 대기 ${waiting ? '✅ 시간선 멈춤' : '❌'} · 건너뛰기 → 시작 ${started ? '✅' : '❌'}`);
+  if (!asked || !waiting || !started) errs++;
+}
 {
   const card = byIdEl('play-card');
   for (let k = 0; k < 400 && !card._classes.has('is-on'); k++) step(1);
@@ -795,6 +811,112 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   }
 }
 
+
+// 광고가 끝나면 화면이 우주로 내려앉는다 — 「영상만」, 투명하게, 라벨 밑으로
+{
+  const api = globalThis.window.__rescene;
+  const st = api.bgmStage;
+  const card = byIdEl('bgm-player');
+  const frame = byIdEl('bgm-frame');
+  const W = globalThis.window.innerWidth;
+  const H = globalThis.window.innerHeight;
+
+  st.set(true);
+  const r = st.rect();
+  const covers = r.w >= W - 0.5 && r.h >= H - 0.5;              // 화면을 덮는다
+  const ratio = Math.abs(r.w / r.h - 16 / 9) < 0.01;            // 찌그러지지 않는다
+  // 세로로 긴 손전화 — 꽉 채우면 가로로 4분의 1만 남으므로 폭에 맞춰 띠로 깐다
+  globalThis.window.innerWidth = 390;
+  globalThis.window.innerHeight = 844;
+  const pr = st.rect();
+  const phone = pr.w >= 390 && pr.w <= 390 * 1.4 && pr.h < 844 * 0.6
+    && Math.abs(pr.w / pr.h - 16 / 9) < 0.01 && pr.x <= 0 && pr.y > 0;
+  globalThis.window.innerWidth = W;
+  globalThis.window.innerHeight = H;
+  const marked = st.el._classes.has('is-space') && card._classes.has('is-space');
+  const moved = frame.style.width === `${Math.round(r.w)}px` && frame.style.height === `${Math.round(r.h)}px`;
+  st.set(false);
+  const back = !st.space && !st.el._classes.has('is-space') && !card._classes.has('is-space');
+
+  // 투명도 · 겹치는 순서 (라벨 z-index 2 보다 아래여야 시간선이 안 묻힌다)
+  const sp = /\.bgm-stage\.is-space \{([^}]*)\}/.exec(CSS);
+  const op = sp && /opacity:\s*([\d.]+)/.exec(sp[1]);
+  const seeThru = op && +op[1] > 0 && +op[1] < 0.6;
+  // 섞임은 모니터일 때부터 걸어 둔다 — 내려앉는 순간에만 켜면 그 한 프레임이 번쩍인다
+  const base = /\.bgm-stage \{([^}]*)\}/.exec(CSS);
+  const blend = !!(base && /mix-blend-mode:\s*screen/.test(base[1]))
+    && !(sp && /mix-blend-mode:/.test(sp[1]));
+  const zi = sp && /z-index:\s*(\d+)/.exec(sp[1]);
+  const under = zi && +zi[1] < 2;
+  // 「영상만」 — 화면(#bgm-frame)은 카드 밖(#bgm-stage) 에 있어야 테두리·글자가 안 따라온다.
+  // 겸사겸사 DOM 에서 iframe 을 옮겨 붙일 일도 없어진다 (옮기면 유튜브가 다시 문다).
+  const html = fs.readFileSync(path.join(HERE, '..', 'index.html'), 'utf8');
+  const stageHtml = /<div id="bgm-stage"[\s\S]*?<\/div>\s*<\/div>/.exec(html);
+  const onlyVideo = /<div id="bgm-stage"[\s\S]{0,300}?id="bgm-frame"/.test(html)
+    && !/<div id="bgm-player"[\s\S]*?id="bgm-frame"/.test(html);
+
+  console.log(`   우주 배경: ${Math.round(r.w)}×${Math.round(r.h)} 화면 덮음 ${covers && ratio ? '✅' : '❌'}`
+    + ` · 세로 화면(390×844) 띠 ${Math.round(pr.w)}×${Math.round(pr.h)} ${phone ? '✅' : '❌'}`
+    + ` · 투명도 ${op ? op[1] : '?'} ${seeThru && blend ? '✅ 비쳐 보임' : '❌'}`
+    + ` · 라벨 아래 ${under ? '✅' : '❌'} · 영상만 ${onlyVideo ? '✅' : '❌'}`
+    + ` · 자리 옮김 ${marked && moved ? '✅' : '❌'} · 되돌아옴 ${back ? '✅' : '❌'}`);
+  if (!covers || !ratio || !phone || !seeThru || !blend || !under || !onlyVideo || !marked || !moved || !back || !stageHtml) errs++;
+}
+
+// 모바일에서 번쩍이던 것들 — 다시 들어오지 않게 막아 둔다
+{
+  const api = globalThis.window.__rescene;
+  const src = fs.readFileSync(path.join(HERE, '..', 'js', 'main.js'), 'utf8');
+  // 1) resize 마다 렌더타깃을 통째로 다시 잡으면 안 된다 (주소창이 접힐 때마다 날아온다)
+  const rz = /function onResize\(\)\s*\{[\s\S]*?\n\}/.exec(src);
+  const heavy = rz ? /(renderer|composer|bloom)\.setSize/.test(rz[0]) : true;
+  const debounced = rz ? /setTimeout\(/.test(rz[0]) : false;
+  // 2) 손가락 화면에서는 픽셀 배율과 MSAA 를 낮춘다
+  const dpr = /setPixelRatio\([^)]*LOW_GPU[^)]*\)/.test(src);
+  const msaa = /AA_SAMPLES\s*=\s*LOW_GPU/.test(src);
+  const notLow = api.LOW_GPU === false;      // 1280×720 데스크톱을 모바일로 몰면 안 된다
+  // 3) 매 프레임 옮겨 다니는 라벨의 backdrop-filter 를 끈다
+  const coarse = /@media \(pointer: coarse\) \{[\s\S]*?\n\}/.exec(CSS);
+  const noBlur = coarse ? /\.node-label[\s\S]{0,200}?backdrop-filter:\s*none/.test(coarse[0]) : false;
+  const noGrain = coarse ? /\.grain \{[^}]*display:\s*none/.test(coarse[0]) : false;
+  console.log(`   모바일 번쩍임: 리사이즈 ${!heavy && debounced ? '✅ 미룸' : '❌ 그 자리에서 재할당'}`
+    + ` · 픽셀·MSAA ${dpr && msaa ? '✅ 낮춤' : '❌'} · 데스크톱 오판 ${notLow ? '✅ 없음' : '❌'}`
+    + ` · 라벨 흐림 ${noBlur ? '✅ 끔' : '❌'} · 필름그레인 ${noGrain ? '✅ 끔' : '❌'}`);
+  if (heavy || !debounced || !dpr || !msaa || !notLow || !noBlur || !noGrain) errs++;
+}
+
+// 좁은 화면 정리 — 버튼 줄이 화면 밖으로 밀려 나가면 안 된다
+{
+  const nar = /@media \(max-width: 640px\) \{[\s\S]*?\n\}\n/.exec(CSS);
+  const navWrap = nar ? /\.hud-nav[\s\S]{0,240}?flex-wrap:\s*wrap/.test(nar[0]) : false;
+  const navFit = nar ? /body\.is-ready \.hud-nav[\s\S]{0,240}?transform:\s*none/.test(nar[0]) : false;
+  const safe = nar ? /env\(safe-area-inset-bottom\)/.test(nar[0]) : false;
+  const askCol = nar ? /\.ask-btns \{[^}]*flex-direction:\s*column/.test(nar[0]) : false;
+  const tap = /\.ask-btn \{[^}]*min-height:\s*44px/.test(CSS);
+  console.log(`   좁은 화면: 버튼 줄 접힘 ${navWrap && navFit ? '✅' : '❌'} · 노치 여백 ${safe ? '✅' : '❌'}`
+    + ` · 물음 버튼 세로 ${askCol ? '✅' : '❌'} · 손가락 크기 44px ${tap ? '✅' : '❌'}`);
+  if (!navWrap || !navFit || !safe || !askCol || !tap) errs++;
+}
+
+// 「소리 없이」 길 — 유튜브를 아예 안 문다. 나중에 🔊 를 누르면 그때 문다.
+{
+  const api = globalThis.window.__rescene;
+  const g = api.askGate;
+  if (api.play.active) { clickOn('btn-play'); step(4); }
+  g.reset();
+  const plays0 = bgm.plays;
+  clickOn('btn-play');
+  const asked = g.el._classes.has('is-on') && !api.play.active;
+  clickOn('ask-no');
+  step(8);
+  const quiet = api.play.active && bgm.plays === plays0 && g.choice === false;
+  clickOn('play-mute');            // 🔊 — 이제야 유튜브를 문다
+  step(4);
+  const late = bgm.plays > plays0 && g.choice === true;
+  console.log(`   소리 없이: 물음 ${asked ? '✅' : '❌'} · 유튜브 안 뭄 ${quiet ? '✅' : '❌'} · 나중에 켜면 뭄 ${late ? '✅' : '❌'}`);
+  if (!asked || !quiet || !late) errs++;
+  if (api.play.active) { clickOn('btn-play'); step(4); }
+}
 
 console.log('▸ 키보드');
 for (const key of ['m', 'Escape', 'ArrowRight', 'ArrowLeft', '0', 'Home', 'm', 'M', 'Escape'])

@@ -452,11 +452,29 @@ function filamentMaterial(o) {
 const app = document.getElementById('app');
 const canvas = document.getElementById('scene');
 
+/**
+ * 손가락 화면(휴대폰·태블릿)은 GPU 여유가 훨씬 적다.
+ * 여기서 픽셀 배율과 MSAA 를 줄이지 않으면 프레임이 뚝뚝 끊기는 정도가 아니라,
+ * 큰 버퍼를 잡다 놓치면서 **화면이 번쩍인다**. 눈에 보이는 그림은 거의 그대로다.
+ */
+const LOW_GPU = (() => {
+  // 손가락으로 만지는 화면인지가 실제 신호다. 창 크기는 matchMedia 가 없는 데서만 쓴다
+  // (1280×720 노트북까지 모바일로 몰아 버리면 안 되니 경계를 낮게 잡는다).
+  try { if (window.matchMedia) return !!window.matchMedia('(pointer: coarse)').matches; } catch {}
+  return Math.min(window.innerWidth, window.innerHeight) <= 560;
+})();
+
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.5));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW_GPU ? 1.6 : 2.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.9;
+
+/* 모바일에서는 메모리가 모자라면 브라우저가 GL 컨텍스트를 통째로 회수해 간다.
+   그때 화면이 한 번 까맣게 번쩍인다. 기본 동작대로 두면 그걸로 끝이지만,
+   preventDefault 로 막아 두면 브라우저가 다시 물려 주고 three 가 알아서 복구한다. */
+let glLost = 0;
+canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); glLost++; }, false);
 
 const labelRenderer = new CSS2DRenderer();
 labelRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -492,7 +510,9 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
  * 그래서 컴포저용 렌더타깃을 직접 만들어 MSAA(samples)를 켠다.
  * 얇은 발광 선이 많아 여기서 픽셀 튐이 확 줄어든다.
  */
-const AA_SAMPLES = 4;
+// 모바일에서는 MSAA 를 끈다 — half-float 렌더타깃 + 멀티샘플 조합은 기기 드라이버마다
+// 되고 안 되고가 갈려서, 안 되는 쪽에서 화면이 번쩍인다. 계단은 아래 SMAA 가 받는다.
+const AA_SAMPLES = LOW_GPU ? 0 : 4;
 const composerRT = new THREE.WebGLRenderTarget(
   Math.max(1, Math.floor(window.innerWidth * renderer.getPixelRatio())),
   Math.max(1, Math.floor(window.innerHeight * renderer.getPixelRatio())),
@@ -3984,6 +4004,9 @@ let bgmDuckK = 1;        // 1 = 그대로, 0 = 완전히 재움
 const bgmView = document.getElementById('bgm-player');
 const bgmSong = bgmView && bgmView.querySelector('.bgmp-meta b');
 const bgmAlbum = bgmView && bgmView.querySelector('.bgmp-meta em');
+const bgmStage = document.getElementById('bgm-stage');
+const bgmFrame = document.getElementById('bgm-frame');
+const bgmSlot = document.getElementById('bgm-slot');
 let ytPlayer = null;
 let ytReady = false;
 
@@ -4131,18 +4154,87 @@ function bgmMount() {
   }
 }
 
+/* --- 화면이 앉는 자리 ------------------------------------------------
+ * 화면(#bgm-frame)은 DOM 에서 절대 안 움직인다 — iframe 을 옮겨 붙이면 유튜브가
+ * 처음부터 다시 물어서 소리가 끊기고 광고가 또 붙는다.
+ * 대신 「모니터 자리」와 「우주 자리」를 재서 좌표만 넘겨 주고, 그 사이는
+ * CSS transition 이 미끄러진다. 소리는 한 박자도 안 끊기고 화면만 내려앉는다.
+ * ------------------------------------------------------------------ */
+let bgmSpace = false;
+
+/** 지금 화면이 앉아야 할 사각형 */
+function bgmStageRect() {
+  const W = Math.max(1, window.innerWidth);
+  const H = Math.max(1, window.innerHeight);
+  if (!bgmSpace) {
+    // 카드 안에 비워 둔 자리를 그대로 덮는다
+    const r = bgmSlot && bgmSlot.getBoundingClientRect ? bgmSlot.getBoundingClientRect() : null;
+    if (r && r.width > 1 && r.height > 1) return { x: r.left, y: r.top, w: r.width, h: r.height };
+    return { x: W - 268, y: 160, w: 242, h: 200 };
+  }
+  // 우주 — 어느 쪽이든 16:9 는 지킨다 (찌그러뜨리면 사람 얼굴에서 먼저 티가 난다).
+  // 다만 세로로 긴 손전화에서 화면을 꽉 채우면 가로로 4분의 1만 남는다.
+  // 그럴 땐 폭에 맞춘 띠로 깔고 위아래는 우주로 비운다 — 배경이니 그게 낫다.
+  // 폭에 딱 맞추면 띠가 너무 얇아 존재감이 없어서 1.25 배까지만 키운다
+  // (좌우로 6% 씩 잘리는데 MV 는 가운데에 사람이 서므로 잘려 나가는 게 없다).
+  const tall = W / H < 1.15;
+  const w = tall ? W * 1.25 : Math.max(W, H * (16 / 9));
+  const h = tall ? W * 1.25 * (9 / 16) : Math.max(H, W * (9 / 16));
+  return { x: (W - w) / 2, y: (H - h) / 2, w, h };
+}
+function bgmLayout() {
+  if (!bgmFrame || !bgmFrame.style) return;
+  const r = bgmStageRect();
+  bgmFrame.style.left = `${Math.round(r.x)}px`;
+  bgmFrame.style.top = `${Math.round(r.y)}px`;
+  bgmFrame.style.width = `${Math.round(r.w)}px`;
+  bgmFrame.style.height = `${Math.round(r.h)}px`;
+}
+/** 우주로 내려앉히기 / 모니터로 되돌리기 */
+function setBgmStage(on) {
+  const want = !!on;
+  if (bgmSpace === want) return;
+  bgmSpace = want;
+  if (bgmStage) bgmStage.classList.toggle('is-space', bgmSpace);
+  if (bgmView) bgmView.classList.toggle('is-space', bgmSpace);
+  // 카드 쪽 자리(빈 칸·카드 폭)는 전환 없이 바로 접힌다 — 그래야 여기서 잰 값이 최종값이다
+  bgmLayout();
+}
+
+/* --- 광고가 지나갔는가 -----------------------------------------------
+ * 유튜브 IFrame API 는 「지금 광고 중」을 알려주지 않는다. 공식 신호가 없다.
+ * 다만 광고가 도는 동안 getDuration() 은 **광고 길이**를 돌려주고, 광고가 끝나
+ * 곡이 시작돼야 그제서야 곡 길이로 바뀐다. 이 저장소의 MV 중 가장 짧은 게
+ * 「YoYo」 1:47(107초)이고 프리롤은 보통 15~30초라, 75초를 경계로 두면 안 겹친다.
+ * ------------------------------------------------------------------ */
+const AD_MIN_RUN = 75;
+let ytPoll = 0;          // 다음에 물어볼 때까지 남은 시간
+let ytMiss = 0;          // 곡이 아니라고 나온 횟수 (연달아 몇 번인지)
+function ytContentLive() {
+  if (!ytReady || !ytPlayer) return false;
+  try {
+    if (typeof ytPlayer.getPlayerState === 'function' && ytPlayer.getPlayerState() !== 1) return false;
+    const d = typeof ytPlayer.getDuration === 'function' ? ytPlayer.getDuration() : 0;
+    return d >= AD_MIN_RUN;
+  } catch { return false; }
+}
+
 function bgmStart() {
   // 시작 곡은 진행선이 서 있는 자리의 곡 — 한 곡 고정이면 그 한 곡이다
   if (bgmTrack < 0) bgmApplyTrack(bgmOne ? BGM_ONE_I : mvAt(play.active ? play.front : PLAY_FROM).i);
   bgmMount();
   bgmTarget = 1;
   if (bgmView) { bgmView.classList.add('is-on'); bgmView.setAttribute('aria-hidden', 'false'); }
+  if (bgmStage) { bgmStage.classList.add('is-on'); bgmStage.setAttribute('aria-hidden', 'false'); }
+  bgmLayout();
   const p = bgm.play();
   if (p && p.catch) p.catch(() => {});
 }
 function bgmStop() {
   bgmTarget = 0;
+  setBgmStage(false);
   if (bgmView) { bgmView.classList.remove('is-on'); bgmView.setAttribute('aria-hidden', 'true'); }
+  if (bgmStage) { bgmStage.classList.remove('is-on'); bgmStage.setAttribute('aria-hidden', 'true'); }
 }
 /**
  * 영상을 보는 동안 배경음을 잠시 재운다 (재생 연출 자체는 그 자리에 멈춘다).
@@ -4185,6 +4277,19 @@ function bgmUpdate(dt) {
   // 곡 바꾸는 중에는 멈추지 않는다 (멈췄다 켜면 유튜브가 처음부터 다시 문다)
   if ((bgmFade <= 0.001 || bgmDuckK <= 0.001) && !bgm.paused) bgm.pause();
   if (ytReady && ytPlayer) { try { ytPlayer.setVolume(Math.round(bgm.volume * 100)); } catch {} }
+
+  // 광고가 끝나고 곡이 실제로 흐르기 시작하면 그때 화면을 우주로 내려앉힌다.
+  // 매 프레임 물어볼 일은 아니라 4분의 1초에 한 번만 본다.
+  ytPoll -= dt;
+  if (ytPoll <= 0) {
+    ytPoll = 0.25;
+    if (bgmTarget > 0 && ytContentLive()) { ytMiss = 0; setBgmStage(true); }
+    // 곡을 갈아 끼워 광고가 또 붙으면 화면을 도로 모니터로 올린다 —
+    // 광고를 우주 배경으로 깔아 둘 이유는 없다. 다만 잠깐 버퍼링으로 끊긴 걸
+    // 광고로 오해해 화면이 왔다 갔다 하면 안 되니, 여섯 번(1.5초) 연달아 아닐 때만.
+    else if (++ytMiss > 6) setBgmStage(false);
+  }
+  waitTick(dt);
 }
 
 const clockEl = document.getElementById('play-strip');
@@ -4527,7 +4632,7 @@ function startPlay() {
   playBtn.textContent = '■ 정지';
   playHud.classList.add('is-on');
   if (clockEl) clockEl.classList.add('is-on');
-  bgmStart();
+  if (bgmChoice !== false) bgmStart();   // 「소리 없이」를 고른 경우엔 유튜브를 아예 안 문다
   clkLastY = '';
   clkLastM = '';
   applyReveal();
@@ -4558,8 +4663,87 @@ function stopPlay(complete = false) {
   if (complete) flyTo(HOME_POS, HOME_TGT, 2.2);
 }
 
+/* --- 재생을 여는 순서 ------------------------------------------------
+ * ▶ 를 누르면 곧장 시작하지 않고 **배경음을 틀지 먼저 묻는다** (그 페이지에서 한 번).
+ *
+ *   소리 없이   → 유튜브를 아예 안 물고 바로 시작
+ *   소리와 함께 → 유튜브를 먼저 물려 놓고, **광고가 끝나 곡이 실제로 시작되는 순간**
+ *                 시간선이 자라기 시작한다. 광고 보는 동안 연출이 혼자 지나가 버리면
+ *                 데뷔도 거제 야호도 소리 없이 지나간 셈이 되기 때문이다.
+ *
+ * 한 번 지나가고 나면(waitDone) 다시 기다리지 않는다 — 프리롤은 처음 물 때 한 번이다.
+ * 유튜브가 아예 안 뜨는 환경(차단·오프라인)에서도 멈춰 있지 않게 WAIT_MAX 뒤엔 그냥 시작한다.
+ * ------------------------------------------------------------------ */
+const askEl = document.getElementById('bgm-ask');
+let bgmChoice = null;      // null=아직 안 물었다 · true=소리와 함께 · false=소리 없이
+let waitOn = false;        // 광고가 끝나기를 기다리는 중
+let waitT = 0;
+let waitDone = false;      // 한 번 지나갔으면 다음 재생부터는 안 기다린다
+const WAIT_MAX = 40;
+
+function askShow(waiting) {
+  if (!askEl) return;
+  askEl.classList.toggle('is-wait', !!waiting);
+  askEl.classList.add('is-on');
+  askEl.setAttribute('aria-hidden', 'false');
+}
+function askHide() {
+  if (!askEl) return;
+  askEl.classList.remove('is-on', 'is-wait');
+  askEl.setAttribute('aria-hidden', 'true');
+}
+const askOpen = () => askEl && askEl.classList.contains('is-on');
+
+function waitStart() {
+  waitOn = true;
+  waitT = 0;
+  bgmStart();               // 유튜브는 여기서 문다 — 아직 사용자 클릭 안이라 소리까지 자동재생된다
+  askShow(true);
+  playBtn.textContent = '■ 취소';
+}
+/** go=true 면 이어서 시간선을 연다, false 면 없던 일로 */
+function waitEnd(go) {
+  if (!waitOn) return;
+  waitOn = false;
+  waitDone = true;
+  askHide();
+  if (go) startPlay();
+  else { bgmStop(); playBtn.textContent = '▶ 재생'; }
+}
+function waitTick(dt) {
+  if (!waitOn) return;
+  waitT += dt;
+  if (ytContentLive() || waitT >= WAIT_MAX) waitEnd(true);
+}
+function askCancel() {
+  if (waitOn) waitEnd(false);
+  else askHide();
+}
+function beginPlay() {
+  if (bgmChoice && !waitDone) waitStart();
+  else startPlay();
+}
 function togglePlay() {
-  play.active ? stopPlay(false) : startPlay();
+  if (askOpen()) { askCancel(); return; }
+  if (play.active) { stopPlay(false); return; }
+  if (bgmChoice === null) { askShow(false); return; }
+  beginPlay();
+}
+{
+  const wire = (id, fn) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+  };
+  wire('ask-yes', () => { bgmChoice = true; setMuted(false); askHide(); beginPlay(); });
+  wire('ask-no', () => { bgmChoice = false; setMuted(true); askHide(); startPlay(); });
+  wire('ask-skip', () => waitEnd(true));
+  wire('ask-cancel', () => waitEnd(false));
+  if (askEl) {
+    askEl.addEventListener('pointerdown', (e) => e.stopPropagation());
+    // 바탕을 누르면 없던 일로 (카드 안쪽 클릭은 안 샌다)
+    askEl.addEventListener('click', (e) => { if (e.target === askEl) askCancel(); });
+  }
 }
 const fly = {
   active: false, t: 0, dur: 1.1,
@@ -4865,12 +5049,24 @@ for (const era of [PAST, ...ERAS]) {
 }
 playBtn.addEventListener('click', togglePlay);
 const bgmBtn = document.getElementById('play-mute');
+/**
+ * 소리 켜기/끄기. 「소리 없이」로 시작했다가 여기서 켜면 그제서야 유튜브를 문다 —
+ * 그 경우엔 프리롤이 그때 붙을 수 있으니 기다리지 않고 그냥 깔아 준다.
+ */
+function setMuted(on) {
+  bgmMuted = !!on;
+  if (bgmBtn) {
+    bgmBtn.textContent = bgmMuted ? '🔇' : '🔊';
+    bgmBtn.classList.toggle('is-off', bgmMuted);
+    bgmBtn.title = bgmMuted ? '배경음 켜기' : '배경음 끄기';
+  }
+}
 if (bgmBtn) {
   bgmBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    bgmMuted = !bgmMuted;
-    bgmBtn.textContent = bgmMuted ? '🔇' : '🔊';
-    bgmBtn.classList.toggle('is-off', bgmMuted);
+    setMuted(!bgmMuted);
+    // 여기서 켠 사람은 이미 기다릴 만큼 기다린 셈이다 — 다음 재생에서 또 붙잡지 않는다
+    if (!bgmMuted && bgmChoice === false && play.active) { bgmChoice = true; waitDone = true; bgmStart(); }
   });
 }
 if (playSpeedBtn) {
@@ -4889,6 +5085,12 @@ function step(dir) {
 }
 
 window.addEventListener('keydown', (e) => {
+  // 재생 전 물음이 떠 있으면 그것부터 — Esc / Space 는 없던 일로
+  if (askOpen()) {
+    if (e.key === 'Escape') askCancel();
+    else if (e.key === ' ') { e.preventDefault(); askCancel(); }
+    return;
+  }
   if (playerEl.classList.contains('is-open')) {
     if (e.key === 'Escape') closePlayer();
     return;
@@ -5442,19 +5644,45 @@ function tick() {
   }
 }
 
-function onResize() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
+/* --- 크기 바뀔 때 ----------------------------------------------------
+ * 모바일에서 화면이 번쩍이던 이유가 여기 있었다. 주소창이 접혔다 펴질 때마다
+ * resize 가 연달아 날아오는데, 그때마다 렌더타깃(MSAA·블룸·SMAA)을 통째로 다시 잡으면
+ * 프레임마다 빈 화면이 한 장씩 끼어든다 — 그게 「번쩍번쩍」이다.
+ *
+ * 그래서 **카메라 비율만 즉시** 맞추고(캔버스는 CSS 로 100% 라 그동안 살짝 늘어날 뿐),
+ * 무거운 버퍼 재할당은 잠잠해진 뒤에 한 번만 한다.
+ * ------------------------------------------------------------------ */
+let sizeW = window.innerWidth;
+let sizeH = window.innerHeight;
+let sizeTimer = 0;
+
+function applySize(w, h) {
+  sizeW = w;
+  sizeH = h;
   renderer.setSize(w, h);
   composer.setSize(w, h);
   bloom.setSize(w, h);
   labelRenderer.setSize(w, h);
+  bgmLayout();
+}
+function onResize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if (w === sizeW && h === sizeH) return;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  bgmLayout();
+  clearTimeout(sizeTimer);
+  sizeTimer = setTimeout(() => applySize(window.innerWidth, window.innerHeight), 220);
 }
 window.addEventListener('resize', onResize);
+// 화면을 돌리면 innerWidth/Height 가 한 박자 늦게 바뀌는 기기가 있다
+window.addEventListener('orientationchange', () => setTimeout(onResize, 260));
 
 /* --- 부팅 ---------------------------------------------------------- */
+
+bgmLayout();   // 화면은 아직 안 보이지만 자리는 미리 잡아 둔다
+setMuted(false);
 
 document.getElementById('meta-members').textContent = GROUP.members.join(' · ');
 document.getElementById('meta-agency').textContent = GROUP.agency;
@@ -5491,6 +5719,28 @@ const bgmMode = {
   get track() { return bgmTrack; },
   get pending() { return bgmPending; },
 };
-window.__rescene = { declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
+/** 배경음 화면이 어디에 앉아 있는지 (모니터 / 우주) */
+const bgmStageApi = {
+  el: bgmStage,
+  frame: bgmFrame,
+  layout: bgmLayout,
+  rect: () => bgmStageRect(),
+  set: (v) => setBgmStage(v),
+  get space() { return bgmSpace; },
+};
+/** 재생을 열기 전 물음 · 광고 대기 */
+const askGate = {
+  el: askEl,
+  open: () => askOpen(),
+  get choice() { return bgmChoice; },
+  get waiting() { return waitOn; },
+  get done() { return waitDone; },
+  get t() { return waitT; },
+  MAX: WAIT_MAX,
+  AD_MIN_RUN,
+  // 검사기가 「소리 없이」 길도 재 볼 수 있게 열어 둔다
+  reset: () => { bgmChoice = null; waitDone = false; },
+};
+window.__rescene = { declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, bgmStage: bgmStageApi, askGate, LOW_GPU, AA_SAMPLES, get glLost() { return glLost; }, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
 
 tick();
