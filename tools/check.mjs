@@ -68,6 +68,12 @@ const fire = (label, pred, ev = {}) => {
 };
 const byIdEl = (id) => byId.get(id);
 const clickOn = (id) => fire(`click #${id}`, (h) => h.el === byIdEl(id) && h.type === 'click');
+// ▶ 는 이제 늘 시작 창을 띄운다 — 창이 뜨면 「소리와 함께 시작」을 눌러 준다.
+// (정지할 때는 창이 안 뜨므로 그대로 지나간다)
+const playToggle = () => {
+  clickOn('btn-play');
+  if (byIdEl('bgm-ask')._classes.has('is-on')) clickOn('ask-yes');
+};
 
 // 1) 3D 라벨 클릭 — selectEvent / selectRadio / openMv 경로
 const labels = handlers.filter((h) => h.type === 'click' && !byId.has(h.el.id) && h.el !== window && h.el !== document);
@@ -138,8 +144,15 @@ const CSS = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
   // 유튜브가 아예 안 뜨는 환경에서도 갇히면 안 된다 — 기다리지 않고 시작
   clickOn('ask-skip');
   const started = api.play.active && !g.waiting && !g.el._classes.has('is-on') && g.done;
-  console.log(`   재생 전 물음: ▶ → 물음 ${asked ? '✅' : '❌'} · 「소리와 함께」 → 광고 대기 ${waiting ? '✅ 시간선 멈춤' : '❌'} · 건너뛰기 → 시작 ${started ? '✅' : '❌'}`);
-  if (!asked || !waiting || !started) errs++;
+  // 두 번째 재생에도 창은 다시 뜬다 — 볼 시간선을 그때그때 고를 수 있어야 하므로
+  clickOn('btn-play');                    // 정지
+  clickOn('btn-play');                    // 다시 ▶
+  const asksAgain = g.el._classes.has('is-on') && !api.play.active;
+  const hasChips = ['main', 'drive', 'radio'].every((k) => byId.has(`ask-pick-${k}`));
+  clickOn('ask-yes');
+  console.log(`   재생 전 물음: ▶ → 물음 ${asked ? '✅' : '❌'} · 두 번째도 물음 ${asksAgain ? '✅' : '❌'}`
+    + ` · 창 안에 시간선 칩 ${hasChips ? '✅' : '❌'} · 「소리와 함께」 → 광고 대기 ${waiting ? '✅ 시간선 멈춤' : '❌'} · 건너뛰기 → 시작 ${started ? '✅' : '❌'}`);
+  if (!asked || !waiting || !started || !asksAgain || !hasChips) errs++;
 }
 {
   const card = byIdEl('play-card');
@@ -186,9 +199,9 @@ const CSS = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
   if (!hidden || !back) errs++;
 }
 
-clickOn('btn-play');          // 정지
+playToggle();          // 정지
 step(4);
-clickOn('btn-play');          // 처음부터 다시 — 속도 곡선은 손대지 않은 재생으로 잰다
+playToggle();          // 처음부터 다시 — 속도 곡선은 손대지 않은 재생으로 잰다
 step(2);
 const cue = byIdEl('play-cue');
 let shown = 0, prev = '', frames0 = 0, focusSeen = false, fadedSeen = 0; const cueIds = []; let lastVidCue = '';
@@ -412,7 +425,7 @@ console.log(`   배경음: 재생 ${bgm.plays || 0}회 · 최고 볼륨 ${bgmPea
 if (!bgm.plays || bgmPeak < 0.3 || !bgm.paused) errs++;
 
 // 영상 보는 동안 배경음 일시정지
-clickOn('btn-play');
+playToggle();
 step(30);
 const volPlay = bgm.volume;
 handlers.filter((h) => h.el && h.el._classes && h.el._classes.has('mv-card')).slice(0, 1)
@@ -442,11 +455,11 @@ const ok = fadeOk && keptRolling;
 console.log(`   영상 보는 중 배경음: ${volPlay.toFixed(2)} →(0.3초) ${volMid.toFixed(2)} →(1.3초) ${volWatch.toFixed(2)} · 닫으면 →(0.3초) ${volBackMid.toFixed(2)} → ${volBack.toFixed(2)} ${fadeOk ? '✅ 접었다 폄' : '❌'}`
   + ` · 소리만 죽이고 계속 돎 ${keptRolling ? '✅' : '❌ 멈춰 버림'}`);
 if (!ok) errs++;
-clickOn('btn-play');
+playToggle();
 step(40);
 
 // 음소거 토글
-clickOn('btn-play');
+playToggle();
 step(30);
 const volOn = bgm.volume;
 clickOn('play-mute');
@@ -454,7 +467,7 @@ step(6);
 console.log(`   음소거 토글: ${volOn.toFixed(2)} → ${bgm.volume.toFixed(2)} ${bgm.volume === 0 ? '✅' : '❌'}`);
 if (bgm.volume !== 0) errs++;
 clickOn('play-mute');
-clickOn('btn-play');
+playToggle();
 step(60);
 console.log('   재생 상태:', document.body.classList.contains('is-playing') ? '아직 재생 중' : '끝까지 돌고 정지됨');
 
@@ -672,7 +685,7 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
 {
   const api = globalThis.window.__rescene;
   const play = api.play;
-  clickOn('btn-play');
+  playToggle();
   // 영상이 붙은 소개가 나올 때까지 돌린다
   let vids = null;
   for (let k = 0; k < 4000 && !vids; k++) {
@@ -705,7 +718,7 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
     console.log(`   재생 중 영상 보기: 창 ${open ? '열림' : '❌'} · 진행선 ${frontFrozen ? '멈춤' : '❌'} · 소개시간 ${held ? '멈춤' : '❌ 계속 감'} · 카드 ${cardStill ? '유지' : '❌ 사라짐'} · 배경음 ${volBefore.toFixed(2)}→${volWatch.toFixed(2)}→${volBack.toFixed(2)} · 닫으면 ${resumed ? '이어서 진행' : '❌ 안 이어짐'} ${ok ? '✅' : '❌'}`);
     if (!ok) errs++;
   }
-  clickOn('btn-play');
+  playToggle();
   step(40);
 }
 
@@ -1075,10 +1088,16 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const kept = pk.count > 0 && Object.values(pk.on).some(Boolean);
   clickOn('pick-drive');                       // 원래대로
   const backOk = pk.count === n0;
-  const ok = defOk && sumOk && withRadio && noDrive && kept && backOk;
+  // 시작 창 안의 칩도 같은 상태를 본다 (두 벌이 따로 놀면 안 된다)
+  clickOn('ask-pick-radio');
+  const modalWired = pk.count === n0 + src.radio && pk.on.radio === true
+    && byIdEl('pick-radio')._classes.has('is-on');
+  clickOn('ask-pick-radio');
+  const ok = defOk && sumOk && withRadio && noDrive && kept && backOk && modalWired;
   console.log(`   볼 시간선 고르기: 본류 ${src.main} · 연수아저씨 ${src.drive} · 메라디오 ${src.radio}`
     + ` · 기본 ${defOk ? '✅ 본류+연수아저씨' : '❌'} · 켜면 늘고 ${withRadio ? '✅' : '❌'} 끄면 줄고 ${noDrive ? '✅' : '❌'}`
-    + ` · 전부 끄기 막힘 ${kept ? '✅' : '❌'} · 되돌림 ${backOk ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
+    + ` · 전부 끄기 막힘 ${kept ? '✅' : '❌'} · 되돌림 ${backOk ? '✅' : '❌'}`
+    + ` · 시작 창 칩과 표시줄 칩이 한 몸 ${modalWired ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
   if (!ok) errs++;
 }
 
@@ -1172,12 +1191,12 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const W0 = globalThis.window.innerWidth;
   const H0 = globalThis.window.innerHeight;
   const resize = () => fire('resize', (h) => h.el === globalThis.window && h.type === 'resize');
-  if (api.play.active) { clickOn('btn-play'); step(4); }
+  if (api.play.active) { playToggle(); step(4); }
   globalThis.window.innerWidth = 390;           // 세로로 긴 손전화
   globalThis.window.innerHeight = 844;
   resize();
   const halfW = Math.hypot(120, 235, 940) * Math.tan((cam.fov * Math.PI) / 360) * cam.aspect;
-  clickOn('btn-play');
+  playToggle();
   step(8);
   let last = null, back = 0, backOne = 0, lead = 0, n = 0, headSeen2 = 0;
   let soloSeen = 0, soloOthers = 0;
@@ -1213,7 +1232,7 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
     // 앞서 보는 폭은 사건을 비추지 않는 동안에만 잰다 (비출 땐 사건 자리로 옮겨 가므로)
     if (api.play.hold <= 0) lead = Math.max(lead, tx - api.play.front);
   }
-  if (api.play.active) { clickOn('btn-play'); step(4); }
+  if (api.play.active) { playToggle(); step(4); }
   globalThis.window.innerWidth = W0;
   globalThis.window.innerHeight = H0;
   resize();
@@ -1242,7 +1261,7 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (api.play.active) { clickOn('btn-play'); step(4); }
   g.reset();
   const plays0 = bgm.plays;
-  clickOn('btn-play');
+  clickOn('btn-play');            // 창만 띄우고, 여기서는 「소리 없이」를 고른다
   const asked = g.el._classes.has('is-on') && !api.play.active;
   clickOn('ask-no');
   step(8);
@@ -1252,7 +1271,7 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const late = bgm.plays > plays0 && g.choice === true;
   console.log(`   소리 없이: 물음 ${asked ? '✅' : '❌'} · 유튜브 안 뭄 ${quiet ? '✅' : '❌'} · 나중에 켜면 뭄 ${late ? '✅' : '❌'}`);
   if (!asked || !quiet || !late) errs++;
-  if (api.play.active) { clickOn('btn-play'); step(4); }
+  if (api.play.active) { playToggle(); step(4); }
 }
 
 console.log('▸ 키보드');

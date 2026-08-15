@@ -4915,6 +4915,14 @@ const WAIT_MAX = 40;
 
 function askShow(waiting) {
   if (!askEl) return;
+  if (!waiting) {
+    paintPick();
+    // 지난번에 고른 쪽을 눌러야 할 단추로 (처음이면 「소리와 함께」)
+    const yes = document.getElementById('ask-yes');
+    const no = document.getElementById('ask-no');
+    if (yes) yes.classList.toggle('is-yes', bgmChoice !== false);
+    if (no) no.classList.toggle('is-yes', bgmChoice === false);
+  }
   askEl.classList.toggle('is-wait', !!waiting);
   askEl.classList.add('is-on');
   askEl.setAttribute('aria-hidden', 'false');
@@ -4958,8 +4966,9 @@ function beginPlay() {
 function togglePlay() {
   if (askOpen()) { askCancel(); return; }
   if (play.active) { stopPlay(false); return; }
-  if (bgmChoice === null) { askShow(false); return; }
-  beginPlay();
+  // 재생은 늘 이 창에서 시작한다 — 무엇을 볼지 여기서 고르고 들어간다.
+  // 소리 선택은 지난번 고른 쪽이 눌러야 할 단추로 표시된다.
+  askShow(false);
 }
 {
   const wire = (id, fn) => {
@@ -5311,29 +5320,34 @@ function syncPickCues() {
   play.next = n;
   play.lastCueX = n > 0 ? PLAY_CUES[n - 1].x : PLAY_FROM;
 }
+// 칩은 두 벌이다 — 시작 모달(ask-pick-*)과 재생 표시줄(pick-*). 상태는 하나를 같이 본다.
 const PICK_BTN = {};
+const askCountEl = document.getElementById('ask-count');
 function paintPick() {
   for (const k of Object.keys(pick)) {
-    const el = PICK_BTN[k];
-    if (!el) continue;
-    el.classList.toggle('is-on', pick[k]);
-    el.setAttribute('aria-pressed', pick[k] ? 'true' : 'false');
+    for (const el of PICK_BTN[k] || []) {
+      el.classList.toggle('is-on', pick[k]);
+      el.setAttribute('aria-pressed', pick[k] ? 'true' : 'false');
+    }
   }
+  if (askCountEl) askCountEl.textContent = `${PLAY_CUES.length}건`;
 }
 for (const k of Object.keys(pick)) {
-  const el = document.getElementById(`pick-${k}`);
-  if (!el) continue;
-  PICK_BTN[k] = el;
-  el.addEventListener('pointerdown', (e) => e.stopPropagation());
-  el.addEventListener('click', (e) => {
-    e.stopPropagation();
-    // 마지막 하나까지 끄면 재생할 게 없어진다 — 그건 막는다
-    if (pick[k] && Object.values(pick).filter(Boolean).length === 1) return;
-    pick[k] = !pick[k];
-    try { localStorage.setItem(PICK_KEY, Object.keys(pick).filter((n) => pick[n]).join(',')); } catch {}
-    paintPick();
-    syncPickCues();
-  });
+  PICK_BTN[k] = ['pick', 'ask-pick']
+    .map((p) => document.getElementById(`${p}-${k}`))
+    .filter(Boolean);
+  for (const el of PICK_BTN[k]) {
+    el.addEventListener('pointerdown', (e) => e.stopPropagation());
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // 마지막 하나까지 끄면 재생할 게 없어진다 — 그건 막는다
+      if (pick[k] && Object.values(pick).filter(Boolean).length === 1) return;
+      pick[k] = !pick[k];
+      try { localStorage.setItem(PICK_KEY, Object.keys(pick).filter((n) => pick[n]).join(',')); } catch {}
+      syncPickCues();
+      paintPick();
+    });
+  }
 }
 paintPick();
 

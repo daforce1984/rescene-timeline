@@ -2841,6 +2841,30 @@ body.is-playing .play-strip { pointer-events: auto; }
 }
 .ask-card p b { color: rgba(255, 200, 130, 0.95); font-weight: 600; }
 
+/* 시작 창 안의 시간선 고르기 */
+.ask-lines {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid rgba(255, 155, 47, 0.16);
+}
+.ask-lab {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: rgba(255, 178, 110, 0.6);
+}
+.ask-count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 9.5px;
+  color: rgba(255, 200, 150, 0.55);
+}
+
 .ask-btns { display: flex; gap: 8px; }
 .ask-btn {
   flex: 1 1 0;
