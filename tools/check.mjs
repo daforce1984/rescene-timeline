@@ -1011,6 +1011,26 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (heavy || !debounced || !dpr || !msaa || !notLow || !noBlur || !noGrain) errs++;
 }
 
+// 사건과 사건 사이 — 아무것도 없는 날짜를 지나는 동안 소개칸은 비어 있어야 한다.
+// 투명하게 접기만 하면 지나간 사건이 그 자리에 남아 큰 빈 상자로 깔려 있는다.
+{
+  const src = fs.readFileSync(path.join(HERE, '..', 'js', 'main.js'), 'utf8');
+  const clear = /function clearCueCard\(\)[\s\S]*?\n\}/.exec(src);
+  const hide = /function hideCue\(\)[\s\S]*?\n\}/.exec(src);
+  const show = /function showCue\(cue\) \{[\s\S]{0,400}/.exec(src);
+  const empties = !!clear && ['cardKind', 'cardTitle', 'cardMeta'].every((k) => new RegExp(`${k}\\.textContent = ''`).test(clear[0]))
+    && /renderCuePhoto\(null\)/.test(clear[0]) && /renderCueVideos\(null\)/.test(clear[0]);
+  // 비운 만큼 칸이 줄어드니 바탕·배경 영상도 따라와야 한다
+  const relayout = !!clear && /bgmLayout\(\)/.test(clear[0]);
+  const scheduled = !!hide && /cueClearTimer = setTimeout\(clearCueCard/.test(hide[0]);
+  // 다음 사건이 바로 들어오면 비우려던 예약은 취소한다
+  const cancelled = !!show && /clearTimeout\(cueClearTimer\)/.test(show[0]);
+  const ok = empties && relayout && scheduled && cancelled;
+  console.log(`   사건 사이 소개칸: 비움 ${empties ? '✅' : '❌'} · 접힌 뒤에 비움 ${scheduled ? '✅' : '❌'}`
+    + ` · 다음 사건이면 취소 ${cancelled ? '✅' : '❌'} · 줄어든 키 반영 ${relayout ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
 // 소개 패널 — 글도 안 잘리고 썸네일 줄도 안 밀려나야 한다.
 // 키를 고정으로 못 박아 두면 둘 중 하나는 반드시 잘린다. 키를 「최소」로 두고
 // 내용이 길면 그만큼 자라게 한다 — 자란 키는 showCue 가 바탕·영상에 다시 넘긴다.

@@ -4658,8 +4658,10 @@ const headAnchor = new CSS2DObject(headDate);
 headAnchor.visible = false;
 scene.add(headAnchor);
 
+let cueClearTimer = 0;
 function showCue(cue) {
   if (!cueEl) return;
+  clearTimeout(cueClearTimer);   // 비우려던 예약을 취소한다 — 새 사건이 들어왔다
   play.focus = -1;
   play.focusMv = -1;
   play.focusDrive = -1;
@@ -4720,11 +4722,31 @@ function showCue(cue) {
   cueTimer = setTimeout(hideCue, cue.hold * 1000 - 420);
 }
 
+/**
+ * 소개칸을 아예 비운다.
+ * 접기만 하면(투명도 0) 지나간 사건이 그 자리에 그대로 남아 칸 높이를 부풀려 놓는다 —
+ * 다음 사건까지 아무것도 없는 날짜를 지나는 동안 큰 빈 상자만 깔려 있게 된다.
+ * 접히는 게 다 보이고 나서(0.5초) 비우고, 줄어든 키를 바탕·배경 영상에 다시 넘긴다.
+ */
+function clearCueCard() {
+  if (!cardEl) return;
+  cardEl.className = 'play-card';
+  if (cardKind) cardKind.textContent = '';
+  if (cardTitle) cardTitle.textContent = '';
+  if (cardMeta) cardMeta.textContent = '';
+  if (cardDate) cardDate.textContent = '';
+  renderCuePhoto(null);
+  renderCueVideos(null);
+  if (cueEl) cueEl.textContent = '';
+  bgmLayout();
+}
 function hideCue() {
   clearTimeout(cueTimer);
   if (cueEl) cueEl.classList.remove('is-on');
   if (cardEl) cardEl.classList.remove('is-on');
   if (cueAnchor) cueAnchor.visible = false;
+  clearTimeout(cueClearTimer);
+  cueClearTimer = setTimeout(clearCueCard, 520);
 }
 
 /**

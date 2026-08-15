@@ -239,6 +239,8 @@ export const AD = {
     { date: '2026-06-24', id: 'TQnDvlJH4Bk', title: '리센느가 온세상을 물들이도록 (30s)', brand: '식초 · 카사베르디 와인 비니거', views: 678857, hi: true },
     { date: '2026-06-24', id: 'e4rq-V5shOA', title: '온세상이 리센느로 가득하길 (15s)', brand: '식초 · 카사베르디', views: 2314393, hi: true },
     { date: '2026-06-26', id: '9i1cbplzxQM', title: 'TVCF 메이킹 필름', brand: '식초 · 카사베르디', views: 107975 },
+    // 음료 — 채널이 터진 걸 다룬 회차 안에 붙어 있었다. 리브와 메이가 마시는 장면
+    { date: '2026-06-26', id: 'xYLNDE4RXsg', title: '갑자기 떡상해서 찍는 댓글읽기 — 「2% 비타 자몽&포멜로」', brand: '음료 · 롯데칠성 2% 부족할 때', views: 3965977, ppl: true },
     { date: '2026-07-02', id: 'd0DjgHztn0Y', title: "'GOOD BETTER VERDI' TVCF 45s 풀버전", brand: '식초 · 카사베르디', views: 141933 },
     { date: '2026-07-05', id: 'sa29RXO7ruM', title: '[BASE NOTES] 그레인온 카사베르디 광고 Behind', brand: '식초 · 카사베르디', views: 161044 },
     { date: '2026-07-08', id: 'nPRJfcYitH8', title: '리센느 라디오 CM', brand: '식초 · 카사베르디', views: 17083 },
@@ -252,6 +254,9 @@ export const AD = {
     // 사이다 — 대기업 CF. 이 줄에서 가장 큰 숫자
     { date: '2026-08-06', id: 'z49A40CwgwM', title: '나랑드사이다 「나랑드로 와」 full', brand: '사이다 · 동아오츠카', views: 4595791, hi: true },
     { date: '2026-08-06', id: 'GsWCHR9N1ew', title: '나랑드사이다 「나랑드로 와」 15s', brand: '사이다 · 동아오츠카', views: 98379 },
+    // 여기부터는 채널 회차 안에 붙은 PPL — 회차 자체가 500만짜리라 광고 도달도 그만큼이다
+    { date: '2026-08-07', id: '4m9eLr-NofA', title: '경주에서 올라온 아이돌 — 「헤이!그로우」 시크릿특가', brand: '건강식품 · 푸드올로지', views: 5707435, ppl: true, hi: true },
+    { date: '2026-08-11', id: 'WTdyA5N4K0k', title: '제나야 말 좀 해라 — 에이페 트리트먼트부스터', brand: '헤어 · 에이페', views: 4238093, ppl: true },
   ],
 };
 
