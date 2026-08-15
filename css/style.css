@@ -2558,7 +2558,7 @@ body.is-playing .play-strip { pointer-events: auto; }
 
 /* === 배경음 화면 ====================================================
    배경음은 공식 MV 다. 유튜브 약관상 플레이어를 숨기거나 가릴 수 없어서
-   (최소 200×200) 처음엔 우상단에 작은 모니터로 세운다.
+   (최소 200×200) 광고를 지나는 동안은 화면 한가운데에 크게 띄운다.
    그리고 **광고가 끝나 곡이 실제로 시작되면 그 화면이 아래 소개 띠 자리로 내려앉는다.**
    재생 중에 날짜와 사건이 올라오는 그 칸 바탕에 MV 가 아주 옅게 깔린다.
 
@@ -2590,7 +2590,7 @@ body.is-playing .play-strip { pointer-events: auto; }
   z-index: 7;
   opacity: 0.1;
 }
-/* 곡이 멈추면 이 자리를 떠나 우상단 작은 창으로 돌아간다 (setBgmStage(false)) —
+/* 곡이 멈추면 이 자리를 떠나 가운데 창으로 돌아간다 (setBgmStage(false)) —
    멈춘 화면은 바탕에 옅게 깔려 있어 봐야 안 보이기 때문. */
 
 .bgmp-frame {
@@ -2621,53 +2621,49 @@ body.is-playing .play-strip { pointer-events: auto; }
   mask-image: linear-gradient(90deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
 }
 
-/* --- 우상단 모니터 카드 --------------------------------------------- */
+/* --- 광고를 지나는 동안 뜨는 창 -------------------------------------
+   화면 한가운데. 광고는 구석에서 작게 보라고 있는 게 아니라 그냥 지나가는
+   것이라, 크게 띄워 놓고 끝나기를 기다리는 편이 덜 답답하다.
+   곡이 시작되면 이 창은 **아예 사라지고** 영상만 아래 소개 패널의 바탕으로 내려앉는다. */
 
 .bgm-player {
   position: absolute;
   z-index: 5;
-  /* 상단 머리글(제목·MEMBERS/AGENCY/FANDOM)은 재생 중에도 남아 있다.
-     그 아래로 내려 글자를 안 가리게 하고, 아래로는 소개 띠의 글자줄
-     (화면 아래에서 258px)까지 닿지 않게 한다. */
-  top: 126px;
-  right: 26px;
-  /* 약관 최소치가 200×200 이라 그보다 작게는 못 간다.
-     대신 16:9 폭(356)을 버리고 세로 200 만 지키는 좁은 창으로 줄인다 —
-     남는 좌우는 검은 띠가 되는데, 카드 바탕이 검정이라 모니터 베젤처럼 붙는다. */
-  width: 258px;
-  padding: 7px 8px 8px;
+  left: 50%;
+  top: 50%;
+  /* 정적인 값이라 여기서 재는 자리(#bgm-slot)가 흔들리지 않는다 */
+  transform: translate(-50%, -50%);
+  width: min(440px, 88vw);
+  padding: 9px 10px 10px;
   border: 1px solid rgba(255, 155, 47, 0.26);
-  border-radius: 4px;
+  border-radius: 6px;
   /* 화면이 screen 으로 얹히므로 카드 바탕은 거의 불투명해야 한다 —
      비치면 시간선이 영상 어두운 부분에 그대로 겹쳐 보인다 */
   background: linear-gradient(160deg, rgba(24, 14, 7, 0.97), rgba(8, 6, 4, 0.98));
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(0, 0, 0, 0.4);
   opacity: 0;
   pointer-events: none;
-  /* 자리(width)는 전환 없이 바로 바뀐다 — 화면이 앉을 사각형을 JS 가 여기서 재기 때문에,
-     애니메이션 도중 값을 재면 화면이 중간값을 쫓아가며 흔들린다. */
   transition: opacity 0.5s ease;
 }
 .bgm-player.is-on { opacity: 1; pointer-events: auto; }
-/* 화면이 띠로 내려가면 카드에는 표기줄만 남는다 (자리는 접힌다) */
-.bgm-player.is-space { width: auto; max-width: min(72vw, 300px); }
+/* 바탕으로 내려앉으면 이 창은 통째로 없앤다 (영상은 이미 패널에 가 있다) */
+.bgm-player.is-space { display: none; }
 
-/* 화면이 앉을 자리 — 크기를 여기서 재서 #bgm-frame 에 그대로 넘긴다 */
+/* 화면이 앉을 자리 — 크기를 여기서 재서 #bgm-frame 에 그대로 넘긴다.
+   약관 최소치 200×200 아래로는 안 내려간다. */
 .bgmp-slot {
-  width: 242px;
-  height: 200px;
-  border-radius: 3px;
+  width: 100%;
+  min-width: 200px;
+  aspect-ratio: 16 / 9;
+  min-height: 200px;
+  border-radius: 4px;
   background: #000;
 }
-.bgm-player.is-space .bgmp-slot { display: none; }
 
-/* 화면이 낮으면 곁다리 글부터 접어 카드 키를 줄인다 (창은 200 아래로 못 줄인다) */
-@media (max-height: 820px) {
-  .bgm-player { top: 116px; }
-  .bgmp-meta em { display: none; }
-}
-@media (max-height: 720px) {
+/* 화면이 낮으면 곁다리 글부터 접어 창 키를 줄인다 (창은 200 아래로 못 줄인다) */
+@media (max-height: 620px) {
   .bgmp-cap { display: none; }
+  .bgmp-meta em { display: none; }
   .bgmp-meta { margin-top: 5px; }
 }
 
@@ -2702,7 +2698,6 @@ body.is-playing .play-strip { pointer-events: auto; }
   gap: 6px;
   margin-top: 6px;
 }
-.bgm-player.is-space .bgmp-meta { margin-top: 0; }
 .bgmp-meta b {
   font-size: 11px;
   font-weight: 600;
@@ -2720,35 +2715,31 @@ body.is-playing .play-strip { pointer-events: auto; }
   color: rgba(255, 190, 130, 0.45);
 }
 /* 한 곡 고정 ↔ 시간선 따라가기.
-   곡을 갈아 끼울 때마다 유튜브 프리롤이 붙을 수 있어서, 한 곡으로 묶어 둘 수 있게 했다. */
-.bgmp-mode {
-  flex: 0 0 auto;
-  margin-left: auto;
-  padding: 2px 7px;
-  border: 1px solid rgba(255, 155, 47, 0.34);
-  border-radius: 3px;
-  background: rgba(255, 140, 45, 0.07);
+   곡을 갈아 끼울 때마다 유튜브 프리롤이 붙을 수 있어서, 한 곡으로 묶어 둘 수 있게 했다.
+   창이 사라진 뒤에도 만질 수 있어야 해서 재생 HUD 안, 소리 단추 옆에 둔다. */
+.play-mode {
   font-family: var(--mono);
-  font-size: 8.5px;
+  font-size: 9px;
   letter-spacing: 0.08em;
-  line-height: 1.4;
   white-space: nowrap;
-  color: rgba(255, 196, 145, 0.72);
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 175, 80, 0.5);
+  background: rgba(255, 130, 40, 0.12);
+  color: rgba(255, 214, 176, 0.85);
   cursor: pointer;
-  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.18s, box-shadow 0.18s, color 0.18s;
 }
-.bgmp-mode:hover { border-color: rgba(255, 200, 130, 0.8); background: rgba(255, 140, 45, 0.2); color: rgba(255, 236, 210, 0.95); }
-.bgmp-mode.is-one {
-  border-color: rgba(255, 190, 110, 0.7);
-  background: rgba(255, 150, 50, 0.22);
-  color: rgba(255, 240, 215, 0.95);
+.play-mode:hover { background: rgba(255, 150, 55, 0.3); box-shadow: 0 0 14px rgba(255, 170, 60, 0.5); }
+.play-mode.is-one {
+  border-color: rgba(255, 200, 120, 0.8);
+  background: rgba(255, 150, 50, 0.28);
+  color: rgba(255, 244, 224, 0.98);
 }
 
-/* 좁은 화면 — 자리를 옮기되 200×200 아래로는 내려가지 않는다 */
+/* 좁은 화면 — 창은 그대로 가운데. 폭만 화면에 맞춘다 (200 아래로는 안 내려간다) */
 @media (max-width: 900px) {
-  /* 좁은 화면 — 머리글이 두 줄로 늘어나므로 조금 더 내린다 */
-  .bgm-player { top: 132px; right: 14px; width: 216px; padding: 6px 7px 7px; }
-  .bgmp-slot { width: 202px; height: 200px; }   /* 약관 최소치 200×200 */
+  .bgm-player { width: min(400px, 90vw); padding: 8px 9px 9px; }
   .bgmp-meta em { display: none; }
 }
 /* === 재생 전 물음 ===================================================
@@ -2772,7 +2763,7 @@ body.is-playing .play-strip { pointer-events: auto; }
   transition: opacity 0.35s ease, background 0.6s ease;
 }
 .bgm-ask.is-on { opacity: 1; pointer-events: auto; }
-/* 기다리는 동안에는 바탕을 걷는다 — 우상단 유튜브 화면을 가리면 안 된다 */
+/* 기다리는 동안에는 바탕을 걷고 카드를 아래로 내린다 — 가운데 유튜브 창을 가리면 안 된다 */
 .bgm-ask.is-wait {
   align-items: flex-end;
   background: linear-gradient(to top, rgba(2, 2, 6, 0.82), rgba(2, 2, 6, 0) 42%);
@@ -3121,12 +3112,6 @@ body.is-playing .play-strip { pointer-events: auto; }
   /* 멤버 소개도 같은 껍데기를 쓴다 — 카드만 한 장씩 */
   .memgal-list { gap: 10px; }
 
-  /* 배경음 모니터 — 띠로 내려간 뒤에는 표기줄만 남으므로 더 접는다 */
-  .bgm-player { top: 104px; right: 10px; width: 208px; }
-  .bgmp-slot { width: 200px; }   /* 약관 최소치 200×200 */
-  .bgm-player.is-space { max-width: min(66vw, 230px); padding: 5px 8px 6px; }
-  .bgm-player.is-space .bgmp-cap { display: none; }
-
   /* 재생 전 물음 — 버튼은 세로로 쌓아 손가락 폭을 준다 */
   .ask-card { max-width: none; padding: 17px 16px 15px; }
   .ask-card h2 { font-size: 16.5px; }
@@ -3138,5 +3123,6 @@ body.is-playing .play-strip { pointer-events: auto; }
 /* 가로로 눕힌 손전화 — 세로가 짧아 아래 버튼 줄과 재생 띠가 겹친다 */
 @media (max-height: 460px) and (pointer: coarse) {
   .play-strip { display: none; }
-  .bgm-player { top: 78px; }
+  /* 창은 가운데 그대로 두되 곁다리 글을 접어 키를 줄인다 */
+  .bgm-player { width: min(360px, 76vw); }
 }

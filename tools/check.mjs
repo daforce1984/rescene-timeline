@@ -100,21 +100,29 @@ if (!ytBgm || !bgm.loop) errs++;
 }
 const CSS = fs.readFileSync(path.join(HERE, '..', 'css', 'style.css'), 'utf8');
 {
-  // 약관상 플레이어는 200×200 이상으로 보여야 한다 — 숨기면 안 된다.
-  // 화면이 앉을 크기는 카드 안의 빈 칸(.bgmp-slot)이 정한다.
+  // 광고를 지나는 동안 뜨는 창 — 화면 한가운데에, 약관 최소치 200×200 이상으로.
+  // 곡이 시작되면 이 창은 통째로 사라지고 영상만 아래 소개 패널의 바탕으로 내려앉는다.
   const css = CSS;
-  const box = /\.bgmp-slot \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
-  const mob = /@media \(max-width: 900px\)[\s\S]{0,400}?\.bgmp-slot \{[^}]*width:\s*(\d+)px;[^}]*height:\s*(\d+)px/.exec(css);
-  const okSize = box && +box[1] >= 200 && +box[2] >= 200 && mob && +mob[1] >= 200 && +mob[2] >= 200;
-  const hidden = /\.bgm-player\s*\{[^}]*display:\s*none/.test(css) || /\.bgmp-frame\s*\{[^}]*display:\s*none/.test(css);
-  // 상단 머리글(≈110px)을 안 가리고, 소개 띠 글자줄(화면 아래 258px)에도 안 닿아야 한다
-  const top = /\.bgm-player \{[\s\S]*?top:\s*(\d+)px/.exec(css);
-  const cardH = 200 + 40;                       // 창 + 캡션/제목 줄
-  const clearTop = top && +top[1] >= 110;
-  const clearBottom = (h) => +top[1] + cardH < h - 258;
-  const okPos = clearTop && clearBottom(900) && clearBottom(768);
-  console.log(`   MV 플레이어: ${box ? box[1] + '×' + box[2] : '?'} · 좁은 화면 ${mob ? mob[1] + '×' + mob[2] : '?'} · 숨김 ${hidden ? '❌' : '없음'} · top ${top ? top[1] : '?'}px (머리글 아래 ${clearTop ? '✅' : '❌'} · 소개 띠 위 ${okPos ? '✅' : '❌'})`);
-  if (!okSize || hidden || !okPos) errs++;
+  const html0 = fs.readFileSync(path.join(HERE, '..', 'index.html'), 'utf8');
+  const slot = /\.bgmp-slot \{([^}]*)\}/.exec(css);
+  const minW = slot && /min-width:\s*(\d+)px/.exec(slot[1]);
+  const minH = slot && /min-height:\s*(\d+)px/.exec(slot[1]);
+  const okSize = !!(minW && minH) && +minW[1] >= 200 && +minH[1] >= 200;
+  const card = /\.bgm-player \{([^}]*)\}/.exec(css);
+  const mid = !!card && /left:\s*50%/.test(card[1]) && /top:\s*50%/.test(card[1])
+    && /transform:\s*translate\(-50%,\s*-50%\)/.test(card[1]);
+  // 늘 숨기면 약관 위반이다 — 사라지는 건 「바탕으로 내려앉은 뒤」뿐이어야 한다
+  const alwaysHidden = !!card && /display:\s*none/.test(card[1]);
+  const goneOnBg = /\.bgm-player\.is-space \{[^}]*display:\s*none/.test(css);
+  // 창이 사라져도 「한 곡 / 시간선」은 만질 수 있어야 한다 (재생 HUD 로 옮겼다)
+  const hud = /<div id="play-hud"[\s\S]*?<\/div>/.exec(html0);
+  const modeOut = !!hud && /id="bgm-mode"/.test(hud[0]);
+  const ok = okSize && mid && !alwaysHidden && goneOnBg && modeOut;
+  console.log(`   광고 창: 최소 ${minW ? minW[1] : '?'}×${minH ? minH[1] : '?'} ${okSize ? '✅' : '❌'}`
+    + ` · 화면 한가운데 ${mid ? '✅' : '❌'} · 늘 숨기지는 않음 ${alwaysHidden ? '❌' : '✅'}`
+    + ` · 바탕으로 내려가면 사라짐 ${goneOnBg ? '✅' : '❌'}`
+    + ` · 「한 곡/시간선」은 재생 HUD 에 ${modeOut ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
 }
 
 // 1) 재생을 열기 전 물음 → 광고 대기 → 시작

@@ -4073,7 +4073,7 @@ let bgmDuckK = 1;        // 1 = 그대로, 0 = 완전히 재움
 
 /**
  * 배경음은 mp3 가 아니라 **공식 MV 를 그대로 튼다** (권리 문제를 피하는 유일하게 깔끔한 길).
- * 대신 유튜브 약관이 요구하는 대로 플레이어를 숨기지 않고 우상단에 작은 모니터로 띄운다.
+ * 대신 유튜브 약관이 요구하는 대로, 광고를 지나는 동안 화면 한가운데에 크게 띄운다.
  *
  * 나머지 코드는 `bgm.volume` · `bgm.paused` 만 보고 돌아가므로, 그 모양을 그대로 흉내 내는
  * 껍데기를 두고 실제 호출만 유튜브 쪽으로 넘긴다. 페이드·더킹 로직은 한 줄도 안 바뀐다.
@@ -4417,7 +4417,7 @@ function bgmUpdate(dt) {
     ytPoll = 0.25;
     const st = bgmTarget > 0 ? ytState() : 'none';
     if (st === 'play') { ytMiss = 0; setBgmStage(true); }
-    // 곡이 안 흐르면(일시정지·광고) 화면은 **우상단 작은 창으로 돌아간다.**
+    // 곡이 안 흐르면(일시정지·광고) 화면은 **가운데 창으로 돌아간다.**
     // 소개 패널 바탕은 곡이 흐르는 동안의 것이고, 멈춘 화면은 작은 창에서 봐야 보인다.
     // 잠깐 끊긴 걸 오해해 왔다 갔다 하면 안 되니 여섯 번(1.5초) 연달아 아닐 때만 옮긴다.
     else if (++ytMiss > 6) setBgmStage(false);
@@ -4514,13 +4514,17 @@ function applyReveal() {
       }
     }
   }
+  // 진행선의 밝은 끝은 **사건이 선 자리에 정확히** 놓여야 한다.
+  // 여기에 0.004 를 얹어 두었더니(시간축 전체가 u 0..1 이라 20 남짓) 선이 사건보다
+  // 늘 조금 앞서 있었다. 데스크톱에선 반폭의 2.5% 라 티가 덜 났는데
+  // 세로 화면에서는 반폭이 210 이라 10% 가까이 벌어져 눈에 걸렸다.
   for (const t of timelineMats) {
-    t.m.uniforms.uReveal.value = play.active ? pointAtX(t.line, front).u + 0.004 : 2;
+    t.m.uniforms.uReveal.value = play.active ? pointAtX(t.line, front).u : 2;
     t.m.uniforms.uRevealFrom.value = play.active ? pointAtX(t.line, PLAY_HEAD_X).u - 0.002 : -1;
   }
   for (const p of periodMats) {
     p.m.uniforms.uReveal.value = play.active
-      ? clamp((pointAtX(p.line, front).i - p.i0) / (p.i1 - p.i0), 0, 1) + 0.004
+      ? clamp((pointAtX(p.line, front).i - p.i0) / (p.i1 - p.i0), 0, 1)
       : 2;
   }
   scrubDots.forEach((d, i) => d.classList.toggle('is-ahead', play.active && dateToX(EVENTS[i].date) > front));

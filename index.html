@@ -42,7 +42,7 @@
     <div id="play-bg" class="play-bg" aria-hidden="true"></div>
 
     <!-- 배경음 영상이 내려앉는 자리.
-         광고가 끝나고 곡이 실제로 시작되면, 우상단 모니터에 있던 화면이
+         광고가 끝나고 곡이 실제로 시작되면, 한가운데 떠 있던 창의 화면이
          아래 소개 패널의 바탕으로 내려앉는다 (영상만 — 테두리도 글자도 안 따라온다).
          DOM 에서 iframe 을 옮기면 유튜브가 처음부터 다시 물기 때문에,
          화면(#bgm-frame)은 처음부터 여기 있고 **자리만** 옮겨 다닌다. -->
@@ -169,17 +169,19 @@
       <span class="play-cap">TIMELINE 재생 중</span>
       <span class="play-track"><i id="play-bar"></i></span>
       <button id="play-mute" type="button" class="play-mute" aria-label="배경음 켜기/끄기">🔊</button>
+      <button id="bgm-mode" class="play-mode" type="button" aria-pressed="false">시간선</button>
       <button id="play-speed" type="button" class="play-speed" aria-label="재생 속도">1×</button>
       <span class="play-hint"><kbd>클릭</kbd> 다음으로 · <kbd>Space</kbd> 중단</span>
     </div>
 
     <!-- 배경음 = 공식 MV. 유튜브 약관상 플레이어는 200×200 이상으로 보여야 한다.
-         그래서 숨기지 않고 우상단에 작은 모니터로 띄운다. -->
+         그래서 광고를 지나는 동안 화면 한가운데에 크게 띄운다.
+         곡이 시작되면 이 창은 사라지고 영상만 아래 소개 패널의 바탕으로 내려앉는다. -->
     <div id="bgm-player" class="bgm-player" aria-hidden="true">
       <span class="bgmp-cap"><i></i>NOW PLAYING</span>
       <!-- 화면이 앉을 자리만 잡아 두는 빈 칸 (실제 화면은 #bgm-stage 안에 있다) -->
       <div id="bgm-slot" class="bgmp-slot"></div>
-      <span class="bgmp-meta"><b>LOVE ATTACK</b><em>미니 1집 《SCENEDROME》</em><button id="bgm-mode" class="bgmp-mode" type="button" aria-pressed="false">시간선</button></span>
+      <span class="bgmp-meta"><b>LOVE ATTACK</b><em>미니 1집 《SCENEDROME》</em></span>
     </div>
 
     <!-- 재생 화면 — 날짜와 사건을 한 자리에 고정한다 (위치가 안 움직여야 시선이 안 튄다) -->
@@ -275,7 +277,7 @@
           <h2 id="ask-title">배경음을 틀까요?</h2>
           <p>공식 MV <b>「LOVE ATTACK」</b> 을 유튜브로 그대로 틉니다.
             광고가 먼저 붙을 수 있는데, <b>광고가 끝나고 곡이 시작되면</b> 그때 시간선이 자라기 시작합니다.
-            영상은 화면 아래 소개 패널의 바탕으로 옅게 깔립니다.</p>
+            영상은 화면 아래 소개 패널의 바탕으로 옅게 깔리고, 이 창은 사라집니다.</p>
           <div class="ask-btns">
             <button id="ask-yes" class="ask-btn is-yes" type="button">소리와 함께</button>
             <button id="ask-no" class="ask-btn" type="button">소리 없이</button>
@@ -285,7 +287,7 @@
 
         <div class="ask-pane ask-wait">
           <h2>광고가 끝나기를 기다리는 중…</h2>
-          <p>오른쪽 위 화면에서 지나가는 게 보입니다. <b>곡이 시작되는 순간</b> 시간선이 자라기 시작합니다.</p>
+          <p>가운데 창에서 지나가는 게 보입니다. <b>곡이 시작되는 순간</b> 시간선이 자라기 시작합니다.</p>
           <div class="ask-bar" aria-hidden="true"><i id="ask-bar"></i></div>
           <div class="ask-btns">
             <button id="ask-skip" class="ask-btn is-yes" type="button">기다리지 않고 시작</button>
