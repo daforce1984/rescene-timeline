@@ -1006,6 +1006,24 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (heavy || !debounced || !dpr || !msaa || !notLow || !noBlur || !noGrain) errs++;
 }
 
+// 소개 패널 — 글이 길어도 썸네일 줄은 남아야 한다.
+// 띠 키가 고정이라, 줄어들 줄 모르는 글이 아래 썸네일을 통째로 밀어내고 있었다.
+{
+  const card = /\.play-card \{([^}]*)\}/.exec(CSS);
+  const text = /\.pcard-text \{([^}]*)\}/.exec(CSS);
+  const vids = /\.pcard-videos \{([^}]*)\}/.exec(CSS);
+  const meta = /\.pcard-meta \{([^}]*)\}/.exec(CSS);
+  // flex 자식은 min-height 를 0 으로 풀어 줘야 실제로 줄어든다
+  const shrinks = !!text && /min-height:\s*0/.test(text[1]) && /overflow:\s*hidden/.test(text[1])
+    && !!card && /min-height:\s*0/.test(card[1]);
+  const pinned = !!vids && /flex:\s*0 0 auto/.test(vids[1]);
+  const clamped = !!meta && /-webkit-line-clamp:\s*\d/.test(meta[1]);
+  const ok = shrinks && pinned && clamped;
+  console.log(`   소개 패널 넘침: 글이 줄어듦 ${shrinks ? '✅' : '❌'}`
+    + ` · 썸네일 줄 고정 ${pinned ? '✅' : '❌'} · 설명 줄 수 묶음 ${clamped ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
 // 회차 목록 — 메라디오 · 나의 연수아저씨.
 // 시간선 위에 점으로 흩어져 있는 회차를 한자리에 모아 놓은 목록이다.
 {

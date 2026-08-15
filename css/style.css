@@ -1925,6 +1925,8 @@ body.is-playing.show-ui .play-hud.is-on {
   padding-top: 8px;
   flex-wrap: nowrap;
   overflow: hidden;
+  /* 글이 길어도 이 줄만은 안 줄어들고 안 밀려난다 */
+  flex: 0 0 auto;
 }
 
 .pcv {
@@ -2269,6 +2271,9 @@ body.is-playing .play-strip { pointer-events: auto; }
 .play-card {
   flex: 1 1 auto;
   min-width: 0;
+  /* 띠 키가 고정이라 안에서 넘치면 아래가 잘려 나간다.
+     줄어들어야 하는 건 글이고, 썸네일 줄은 끝까지 남아야 한다. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -2277,11 +2282,15 @@ body.is-playing .play-strip { pointer-events: auto; }
 }
 .play-card.is-on { opacity: 1; }
 
+/* 글이 길면 이쪽이 줄어든다. flex 자식은 min-height 를 0 으로 풀어 줘야 실제로 줄어들고,
+   안 그러면 안 줄어든 채로 아래 썸네일 줄을 띠 밖으로 밀어낸다 — 실제로 그랬다. */
 .pcard-text {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* 왼쪽 배치는 보류 — 글 아래에 썸네일이 오는 세로 배치를 그대로 쓴다 */
@@ -2302,10 +2311,15 @@ body.is-playing .play-strip { pointer-events: auto; }
   color: #fff6e8;
   text-shadow: 0 0 34px rgba(255, 150, 45, 0.42), 0 3px 22px rgba(0, 0, 0, 0.8);
 }
+/* 설명은 세 줄까지 — 그 아래 썸네일 줄이 밀려 나면 안 된다 */
 .pcard-meta {
   font-size: 13px;
   line-height: 1.5;
   color: rgba(255, 214, 175, 0.7);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .play-card.is-on .pcard-kind,
 .play-card.is-on .pcard-title,

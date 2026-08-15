@@ -854,6 +854,10 @@ export const EVENTS = [
     angle: 162,
     length: 126,
     labelOff: [10, 20],
+    videos: [
+      { id: 'Qfk1xFONrYY', t: '240329 데뷔 첫 팬사인회 — 미나미', c: '① 2024. 03. 29 · 26분 · 2,506' },
+      { id: 'd1TOqJb_mdM', t: '사인 끝나고 — 미나미', c: '② 2024. 03. 29 · 777' },
+    ],
   },
   {
     id: 'ost',
@@ -895,6 +899,10 @@ export const EVENTS = [
     angle: 208,
     length: 66,
     labelOff: [0, 10],
+    videos: [
+      { id: 'C7g_-bpoGIM', t: 'YoYo (Japanese Version)', c: '① 공식 음원 · 30만', hi: true },
+      { id: 'VBQLOozLj6w', t: 'YoYo (Japanese Version) 歌詞紙 — MINAMI', c: '② dingo japan · 가사를 쓴 미나미가 직접 · 7.3만' },
+    ],
   },
   {
     id: 'scenedrome',
@@ -908,6 +916,9 @@ export const EVENTS = [
     length: 124,
     labelOff: [165, 10],
     major: true,
+    videos: [
+      { id: '9eevQUsyYSg', t: '《SCENEDROME》 ALBUM PREVIEW', c: '① 2024. 08. 20 · 발매 일주일 전 · 2.9만' },
+    ],
   },
   {
     id: 'fansign-2',
@@ -919,6 +930,9 @@ export const EVENTS = [
     angle: 25,
     length: 126,
     labelOff: [15, -35],
+    videos: [
+      { id: 'baplhRBlB3U', t: '240908 팬사인회 — 미나미 「LOVE ATTACK」', c: '① 2024. 09. 08 · 3.5만' },
+    ],
   },
   {
     id: 'award',
@@ -930,6 +944,11 @@ export const EVENTS = [
     angle: 190,
     length: 90,
     labelOff: [0, 50],
+    videos: [
+      { id: 'SGn22S7-JWw', t: '라이징스타상(가수 부문) 수상 소감', c: '① 2024. 11. 02 · 아시아모델어워즈 공식', hi: true },
+      { id: 'O5GxuXRvJeI', t: '2024 아시아모델어워즈 축하공연', c: '② 2024. 11. 02 · 하이원리조트 · 4,419' },
+      { id: '1r0XOmSPVQw', t: '[4K] 수상소감 가로 직캠', c: '③ 2024. 11. 02 · 763' },
+    ],
   },
   {
     id: 'uhuh-jp',
@@ -940,6 +959,10 @@ export const EVENTS = [
     desc: '데뷔곡의 일본어 버전을 발매. 사흘 뒤 열린 일본 데뷔 공연으로 곧장 이어졌다.',
     angle: 345,
     length: 60,
+    videos: [
+      { id: 'YcDYrBJ3yjw', t: 'UhUh (Japanese Version)', c: '① 공식 음원 · 1.9만', hi: true },
+      { id: 'JRdVfTgwlrQ', t: 'UhUh (Japanese Ver.) 일본 TV 라이브', c: '② 2025. 05. 28 · 현지 방송' },
+    ],
   },
   {
     id: 'jp-debut',
@@ -951,6 +974,10 @@ export const EVENTS = [
     angle: 205,
     length: 84,
     labelOff: [-5, -10],
+    videos: [
+      { id: 'YDzfP4CHizE', t: '[4K] 「LOVE ATTACK」 in RED TOKYO TOWER', c: '① 2024. 12. 07 · 그날 현장 · 7,021', hi: true },
+      { id: '5gUixjcMne8', t: '[BASE NOTES] 일본 도쿄 공연 모음.zip', c: '② 2025. 04. 11 · 공식 비하인드 · 5.4만' },
+    ],
   },
 
   /* ---------------- 2025 · 축적기 ---------------- */
@@ -974,6 +1001,11 @@ export const EVENTS = [
     desc: '중소 기획사 신인으로서 꾸준히 이어간 발매. 이 시기의 축적이 이듬해 역주행의 연료가 된다.',
     angle: 190,
     length: 60,
+    videos: [
+      { id: 'jciMWQgUVCA', t: '「Deja Vu」 최초 공개 — 엠카운트다운', c: '① 2025. 07. 03 · 98.6만', hi: true },
+      { id: '2_1YFwGFqys', t: '[MOVE TO PERFORMANCE] Deja Vu (4K)', c: '② 2025. 07. 04 · 139.7만' },
+      { id: 'k2vT9x9_wQE', t: 'Deja Vu After School Live Clip', c: '③ 공식 라이브 클립 · 6.6만' },
+    ],
   },
   {
     id: 'fancon',
@@ -985,6 +1017,12 @@ export const EVENTS = [
     angle: 22,
     length: 54,
     labelOff: [10, 0],
+    videos: [
+      { id: 'HVsMGlboV_s', t: '「중독(Overdose)」 커버 @ Project 326', c: '① 2025. 08. 18 공개 · 팬콘 최대 화제 무대 · 18.9만', hi: true },
+      { id: 'vCkkkE7ktes', t: '「UhUh (Dance Break Ver.)」 @ Project 326', c: '② 2.6만' },
+      { id: 'YfrsyCN30rs', t: '[BASE NOTES] 본공연 비하인드', c: '③ 2025. 09. 05 · 20분 · 3.8만' },
+      { id: 'WWF0r4MOjv8', t: '250809 첫 팬콘 멤버별 소감 직캠', c: '④ 그날의 다섯 사람 · 1.1만' },
+    ],
   },
   {
     id: 'dental',
@@ -1011,6 +1049,11 @@ export const EVENTS = [
     angle: 18,
     length: 117,
     labelOff: [80, 0],
+    videos: [
+      { id: 'dDi-0BaW_8Y', t: '「Heart Drop」 THE SHOW', c: '① 2025. 11. 11 · 첫 방송 무대 · 4.4만', hi: true },
+      { id: '2SKGgezncCI', t: '「Heart Drop」 뮤직뱅크', c: '② 2025. 11. 21 · 5.0만' },
+      { id: 'ORiKYmHPVmk', t: '[COMEBACK] Heart Drop — 쇼챔피언', c: '③ 2025. 11. 12 · 3.1만' },
+    ],
   },
   {
     id: 'lipbomb',
@@ -1077,6 +1120,10 @@ export const EVENTS = [
     line: 'nexus',
     angle: 147,
     length: 165,
+    videos: [
+      { id: 'aDHmmrfizIE', t: '[4K] 「Runaway」 Band LIVE — itʼs Live', c: '① 2026. 04. 13 · 밴드 라이브 · 48.8만', hi: true },
+      { id: 'aDtNrdAk5gg', t: '「Runaway」 Band Live ver.', c: '② 공식 · 32.4만' },
+    ],
   },
   {
     id: 'reentry',
@@ -1161,6 +1208,11 @@ export const EVENTS = [
     length: 158,
     labelOff: [-100, -85],
     major: true,
+    videos: [
+      { id: 'AT_coOD7phk', t: '[릴레이댄스] Pretty Girl (4K)', c: '① 2026. 07. 10 · 39.5만', hi: true },
+      { id: '4s5TkXahA8g', t: '[음중팔로우캠 4K] Pretty Girl', c: '② 2026. 07. 18 방송 · 23.2만' },
+      { id: 'jI2ZVP_4kGg', t: 'Pretty Girl — 2026 보령머드축제 K-POP SUPER LIVE', c: '③ 2026. 08. 04 방송 · 9.0만' },
+    ],
   },
   {
     // 부순 날짜는 공개된 적이 없다. 커뮤니티가 짚는 건 「24시즌」뿐이라
@@ -1192,6 +1244,9 @@ export const EVENTS = [
     angle: 200,
     length: 150,
     labelOff: [-20, -30],
+    videos: [
+      { id: 'hLM05KN-ZbY', t: '제나의 다이어트는 괴로워', c: '① 2026. 07. 08 · 2년치를 모아 놓은 클립 · 21.4만', hi: true },
+    ],
   },
   {
     id: 'dorm-move',
@@ -1259,6 +1314,11 @@ export const EVENTS = [
     length: 196,
     labelOff: [-40, 30],
     major: true,
+    videos: [
+      { id: 'LjKaseoqJlc', t: '260725 쇼! 음악중심 1위 — 「Pretty Girl」', c: '① 2026. 07. 25 · 호명 순간 · 3.0만', hi: true },
+      { id: 'U9fy1h8cIYQ', t: '「Pretty Girl」 Win on MBC MUSIC CORE', c: '② 2026. 07. 25 · 6.2만' },
+      { id: '_5_GhOQManM', t: '「LOVE ATTACK」 인기가요 1위 수상소감', c: '③ 2026. 07. 26 · 이튿날 SBS 1위 · 1.2만' },
+    ],
   },
   {
     id: 'music-inki',
