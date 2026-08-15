@@ -4685,6 +4685,9 @@ function showCue(cue) {
   if (cueAnchor) cueAnchor.visible = cue.type !== 'mv';
   cueEl.classList.add('is-on');
   cardEl.classList.add('is-on');
+  // 내용이 길면 소개 패널이 그만큼 자란다. 자란 키에 맞춰 패널 바탕과
+  // 거기 깔린 배경 영상도 다시 잡아 준다 (안 그러면 바탕만 짧게 남는다).
+  bgmLayout();
   clearTimeout(cueTimer);
   cueTimer = setTimeout(hideCue, cue.hold * 1000 - 420);
 }

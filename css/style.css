@@ -2186,11 +2186,16 @@ body.is-playing .play-strip { pointer-events: auto; }
 
 /* 높이는 "영상이 있을 때" 기준으로 고정한다.
    사건마다 띠가 늘었다 줄었다 하면 글자가 위아래로 튀어서 읽기 나쁘다. */
+/* 키는 「최소」로 잡는다. 사건마다 늘었다 줄었다 하면 글자가 위아래로 튀지만,
+   고정으로 못 박으면 내용이 긴 사건에서 아래 썸네일이나 글이 잘려 나간다.
+   대부분의 사건은 이 최소치 안에서 끝나고, 넘치는 것만 그만큼 자란다.
+   자란 만큼 패널 바탕(#play-bg)과 배경 영상도 따라온다 — showCue 가 다시 재 준다. */
 .ps-body {
   display: flex;
   align-items: flex-start;
   gap: clamp(22px, 4vw, 54px);
-  height: 212px;
+  min-height: 212px;
+  max-height: 46vh;
   overflow: hidden;
 }
 
@@ -2282,15 +2287,14 @@ body.is-playing .play-strip { pointer-events: auto; }
 }
 .play-card.is-on { opacity: 1; }
 
-/* 글이 길면 이쪽이 줄어든다. flex 자식은 min-height 를 0 으로 풀어 줘야 실제로 줄어들고,
-   안 그러면 안 줄어든 채로 아래 썸네일 줄을 띠 밖으로 밀어낸다 — 실제로 그랬다. */
+/* 글은 자르지 않는다. 자리가 모자라면 띠 쪽이 자란다(.ps-body 의 min-height).
+   min-height: 0 만 풀어 두면 flex 계산에서 이 칸이 아래 썸네일 줄을 밀어내지 않는다. */
 .pcard-text {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
 }
 
 /* 왼쪽 배치는 보류 — 글 아래에 썸네일이 오는 세로 배치를 그대로 쓴다 */
@@ -2311,15 +2315,10 @@ body.is-playing .play-strip { pointer-events: auto; }
   color: #fff6e8;
   text-shadow: 0 0 34px rgba(255, 150, 45, 0.42), 0 3px 22px rgba(0, 0, 0, 0.8);
 }
-/* 설명은 세 줄까지 — 그 아래 썸네일 줄이 밀려 나면 안 된다 */
 .pcard-meta {
   font-size: 13px;
   line-height: 1.5;
   color: rgba(255, 214, 175, 0.7);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 .play-card.is-on .pcard-kind,
 .play-card.is-on .pcard-title,
@@ -2342,7 +2341,7 @@ body.is-playing .play-strip { pointer-events: auto; }
 
 @media (max-width: 900px) {
   .play-strip { padding-bottom: 16px; padding-top: 80px; }
-  .ps-body { gap: 14px; height: 132px; }
+  .ps-body { gap: 14px; min-height: 132px; }
   .ps-clock { width: 96px; padding-left: 10px; }
   .pclk-year { font-size: 26px; }
   .pclk-md { font-size: 13px; }
@@ -3018,7 +3017,8 @@ body.is-playing .play-strip { pointer-events: auto; }
     flex-direction: column;
     align-items: stretch;
     gap: 9px;
-    height: 168px;
+    min-height: 168px;
+    max-height: 52vh;
   }
   /* 날짜는 세로로 세우지 않고 한 줄로 눕힌다 (구간 이름은 오른쪽 끝으로) */
   .ps-clock {

@@ -1006,21 +1006,29 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (heavy || !debounced || !dpr || !msaa || !notLow || !noBlur || !noGrain) errs++;
 }
 
-// 소개 패널 — 글이 길어도 썸네일 줄은 남아야 한다.
-// 띠 키가 고정이라, 줄어들 줄 모르는 글이 아래 썸네일을 통째로 밀어내고 있었다.
+// 소개 패널 — 글도 안 잘리고 썸네일 줄도 안 밀려나야 한다.
+// 키를 고정으로 못 박아 두면 둘 중 하나는 반드시 잘린다. 키를 「최소」로 두고
+// 내용이 길면 그만큼 자라게 한다 — 자란 키는 showCue 가 바탕·영상에 다시 넘긴다.
 {
+  const body = /\.ps-body \{([^}]*)\}/.exec(CSS);
   const card = /\.play-card \{([^}]*)\}/.exec(CSS);
   const text = /\.pcard-text \{([^}]*)\}/.exec(CSS);
   const vids = /\.pcard-videos \{([^}]*)\}/.exec(CSS);
   const meta = /\.pcard-meta \{([^}]*)\}/.exec(CSS);
-  // flex 자식은 min-height 를 0 으로 풀어 줘야 실제로 줄어든다
-  const shrinks = !!text && /min-height:\s*0/.test(text[1]) && /overflow:\s*hidden/.test(text[1])
-    && !!card && /min-height:\s*0/.test(card[1]);
-  const pinned = !!vids && /flex:\s*0 0 auto/.test(vids[1]);
-  const clamped = !!meta && /-webkit-line-clamp:\s*\d/.test(meta[1]);
-  const ok = shrinks && pinned && clamped;
-  console.log(`   소개 패널 넘침: 글이 줄어듦 ${shrinks ? '✅' : '❌'}`
-    + ` · 썸네일 줄 고정 ${pinned ? '✅' : '❌'} · 설명 줄 수 묶음 ${clamped ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
+  const grows = !!body && /min-height:\s*\d+px/.test(body[1]) && !/(?:^|;)\s*height:\s*\d+px/.test(body[1]);
+  // 글은 자르지 않는다
+  const noCut = !!text && !/overflow:\s*hidden/.test(text[1])
+    && !!meta && !/-webkit-line-clamp/.test(meta[1]);
+  // 그래도 썸네일 줄은 안 줄어든다
+  const pinned = !!vids && /flex:\s*0 0 auto/.test(vids[1])
+    && !!card && /min-height:\s*0/.test(card[1]) && !!text && /min-height:\s*0/.test(text[1]);
+  // 자란 키를 바탕·영상이 따라오는가
+  const mainSrc2 = fs.readFileSync(path.join(HERE, '..', 'js', 'main.js'), 'utf8');
+  const cue = /function showCue\([\s\S]*?\n\}/.exec(mainSrc2);
+  const follows = !!cue && /bgmLayout\(\)/.test(cue[0]);
+  const ok = grows && noCut && pinned && follows;
+  console.log(`   소개 패널 넘침: 키가 내용 따라 자람 ${grows ? '✅' : '❌'} · 글 안 잘림 ${noCut ? '✅' : '❌'}`
+    + ` · 썸네일 줄 고정 ${pinned ? '✅' : '❌'} · 바탕·영상이 따라옴 ${follows ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
   if (!ok) errs++;
 }
 
