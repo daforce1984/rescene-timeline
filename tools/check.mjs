@@ -213,7 +213,7 @@ let lastTgtX = null, backSum = 0, backMax = 0;   // 카메라 목표가 뒤로 �
 const probeCam = globalThis.window.__rescene.camera.clone();
 let vidCues = 0, maxThumbs = 0;
 try {
-  for (let k = 0; k < 9000 && document.body.classList.contains('is-playing'); k++) {
+  for (let k = 0; k < 13000 && document.body.classList.contains('is-playing'); k++) {
     step(1); frames0++;
     if (cue.dataset.cue && cue.dataset.cue !== prev) { prev = cue.dataset.cue; shown++; cueIds.push(prev); }
     if (!focusSeen) {
@@ -429,14 +429,19 @@ step(6);
 const volMid = bgm.volume;          // 0.3초 — 접히는 중이어야 한다 (뚝 끊기면 이미 0)
 step(20);
 const volWatch = bgm.volume;        // 1.3초 — 다 접혔다
+// 소리만 죽이고 **계속 돌아가야** 한다. 멈춰 버리면 유튜브 쪽이 「곡이 안 흐르는 중」이 되어
+// 배경 화면이 소개 패널을 떠나 가운데 창으로 되돌아간다.
+const keptRolling = bgm.paused === false;
 clickOn('player-close');
 step(6);
 const volBackMid = bgm.volume;      // 0.3초 — 펴지는 중
 step(40);
 const volBack = bgm.volume;
 const fadeOk = volMid > 0.02 && volMid < volPlay && volWatch === 0 && volBackMid > 0.02 && volBackMid < volBack && volBack > 0.1;
-console.log(`   영상 보는 중 배경음: ${volPlay.toFixed(2)} →(0.3초) ${volMid.toFixed(2)} →(1.3초) ${volWatch.toFixed(2)} · 닫으면 →(0.3초) ${volBackMid.toFixed(2)} → ${volBack.toFixed(2)} ${fadeOk ? '✅ 접었다 폄' : '❌'}`);
-if (!fadeOk) errs++;
+const ok = fadeOk && keptRolling;
+console.log(`   영상 보는 중 배경음: ${volPlay.toFixed(2)} →(0.3초) ${volMid.toFixed(2)} →(1.3초) ${volWatch.toFixed(2)} · 닫으면 →(0.3초) ${volBackMid.toFixed(2)} → ${volBack.toFixed(2)} ${fadeOk ? '✅ 접었다 폄' : '❌'}`
+  + ` · 소리만 죽이고 계속 돎 ${keptRolling ? '✅' : '❌ 멈춰 버림'}`);
+if (!ok) errs++;
 clickOn('btn-play');
 step(40);
 

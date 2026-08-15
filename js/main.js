@@ -4031,6 +4031,7 @@ const play = {
   pendingCue: null, // 빅뱅이 끝난 뒤 띄울 소개
   focus: -1,       // 지금 비추고 있는 분기 사건
   focusMv: -1,     // 지금 비추고 있는 MV
+  focusDrive: -1,  // 지금 비추고 있는 「나의 연수아저씨」 회차
 };
 const HOLD_SEC = 7;          // 사건 하나를 보여주는 시간 (영상까지 훑을 여유를 준다)
 const FADE_SPAN = 110;       // 진행선이 지난 뒤 이 거리만큼에 걸쳐 서서히 나타난다
@@ -4407,9 +4408,11 @@ function bgmUpdate(dt) {
     audioEase(bgmFade) * audioEase(bgmDuckK) * audioEase(bgmSwapK) * BGM.volume * (bgmMuted ? 0 : 1),
     0, 1
   );
-  // 다 접히고 나서야 실제로 멈춘다 (접히는 중에는 계속 흘러야 페이드로 들린다)
-  // 곡 바꾸는 중에는 멈추지 않는다 (멈췄다 켜면 유튜브가 처음부터 다시 문다)
-  if ((bgmFade <= 0.001 || bgmDuckK <= 0.001) && !bgm.paused) bgm.pause();
+  // 다 접히고 나서야 실제로 멈춘다 (접히는 중에는 계속 흘러야 페이드로 들린다).
+  // 곡 바꾸는 중에도, **다른 영상을 보는 동안(더킹)에도 멈추지 않는다** — 소리만 죽이고 계속 돌린다.
+  // 멈춰 버리면 유튜브 쪽이 「곡이 안 흐르는 중」이 되어 배경 화면이 소개 패널을 떠나
+  // 가운데 창으로 되돌아가고, 영상을 닫고 돌아왔을 때 이어지는 자리도 어긋난다.
+  if (bgmFade <= 0.001 && !bgm.paused) bgm.pause();
   if (ytReady && ytPlayer) { try { ytPlayer.setVolume(Math.round(bgm.volume * 100)); } catch {} }
 
   // 광고가 끝나고 곡이 실제로 흐르기 시작하면 그때 화면을 아래 소개 띠로 내려앉힌다.
@@ -4536,6 +4539,7 @@ function applyReveal() {
  * 재생 중 순서대로 소개할 것들 — 분기 사건과 타이틀곡 MV 를 같은 자격으로 섞는다.
  * 파묘 사건은 뺀다 (데뷔 이전이라 이야기 흐름에 끼어든다).
  */
+const CUE_RANK = { event: 0, mv: 1, drive: 2 };
 const PLAY_CUES = [
   ...EVENTS.map((ev, index) => {
     const x = dateToX(ev.date);
@@ -4548,9 +4552,18 @@ const PLAY_CUES = [
     // 시간선 위 스크린과 MV 갤러리에는 그대로 있다.
     return x >= PLAY_FROM && !mv.noPlay ? { type: 'mv', index, mv, x, hold: HOLD_SEC * 0.72 } : null;
   }),
+  /* 「나의 연수아저씨」 회차도 사건 사이사이에 같이 소개한다.
+   * 역주행의 절반이 이 시리즈에서 나왔는데, 시간선 아래에 점으로만 지나가면
+   * 재생을 끝까지 봐도 그런 게 있었는지조차 모른다.
+   * 사건보다는 짧게 물린다 — 22회가 통째로 들어와서 그만큼 길어지기 때문. */
+  ...DRIVE.episodes.map((ep, index) => {
+    const x = dateToX(ep.date);
+    return x >= PLAY_FROM ? { type: 'drive', index, ep, x, hold: HOLD_SEC * 0.5 } : null;
+  }),
 ]
   .filter(Boolean)
-  .sort((a, b) => a.x - b.x || (a.type === 'event' ? -1 : 1));
+  // 같은 자리에 겹치면 사건 → MV → 연수아저씨 순
+  .sort((a, b) => a.x - b.x || CUE_RANK[a.type] - CUE_RANK[b.type]);
 
 const cueEl = document.getElementById('play-cue');
 const cardEl = document.getElementById('play-card');
@@ -4649,8 +4662,23 @@ function showCue(cue) {
   if (!cueEl) return;
   play.focus = -1;
   play.focusMv = -1;
+  play.focusDrive = -1;
 
-  if (cue.type === 'mv') {
+  if (cue.type === 'drive') {
+    const d = drives[cue.index];
+    cueEl.className = 'play-cue kind-drive';
+    cueEl.textContent = DRIVE.label;
+    cueEl.dataset.cue = `drive:${cue.ep.id}`;
+    cardEl.className = 'play-card kind-drive';
+    renderCuePhoto('woni');
+    cardKind.textContent = DRIVE.label;
+    cardDate.textContent = formatDate(cue.ep.date);
+    cardTitle.textContent = cue.ep.title;
+    cardMeta.textContent = `${cue.index + 1}화 · ${DRIVE.caption} · 조회수 ${formatViews(cue.ep.views)}`;
+    renderCueVideos([{ id: cue.ep.id, t: cue.ep.title, hi: true }]);
+    play.focusDrive = cue.index;
+    if (d) focusPos.copy(d.pos);
+  } else if (cue.type === 'mv') {
     const mv = cue.mv;
     // MV 는 스크린 자체가 바로 옆에 있으므로 3D 칩을 따로 띄우지 않는다
     cueEl.className = 'play-cue is-mv';
@@ -4766,6 +4794,7 @@ function startPlay() {
   play.pendingCue = null;
   play.focus = -1;
   play.focusMv = -1;
+  play.focusDrive = -1;
   play.speed = 1;
   if (playSpeedBtn) playSpeedBtn.textContent = '1×';
   document.body.classList.add('is-playing');
@@ -4787,6 +4816,7 @@ function stopPlay(complete = false) {
   play.hold = 0;
   play.focus = -1;
   play.focusMv = -1;
+  play.focusDrive = -1;
   play.pendingCue = null;
   bang.on = false;
   bangGroup.visible = false;
@@ -5459,7 +5489,7 @@ function tick() {
 
   // 재생 중 "지금 이 사건" 세기 — 들어올 때/나갈 때 부드럽게
   const focusK =
-    play.active && play.hold > 0 && (play.focus >= 0 || play.focusMv >= 0)
+    play.active && play.hold > 0 && (play.focus >= 0 || play.focusMv >= 0 || play.focusDrive >= 0)
       ? clamp(Math.min(play.holdMax - play.hold, play.hold) / 0.45, 0, 1)
       : 0;
   const fdimAll = 1 - focusK * 0.7;   // 사건을 비추는 동안 나머지는 물린다
@@ -5552,12 +5582,16 @@ function tick() {
   }
 
   for (const d of drives) {
-    const on = d.i === selectedDrive;
+    // 재생 중 소개되는 회차도 고른 것과 똑같이 살린다.
+    // is-focus 는 좁은 화면에서 「지금 비추는 것 하나만」 남길 때 기준이 되는 표시이기도 하다.
+    const fk = play.focusDrive === d.i ? focusK : 0;
+    const on = d.i === selectedDrive || fk > 0.35;
+    setLod(d.el, 'is-focus', fk > 0.35);
     const pl = 1 + Math.sin(time * 2.4 + d.phase) * 0.12;
     d.node.scale.setScalar(d.nr * pl * (on ? 1.7 : 1));
     d.node.rotation.y += dt * 0.45;
     d.halo.scale.setScalar(d.hr * pl * (on ? 2.1 : 1));
-    d.halo.material.opacity = (on ? 0.9 : 0.45) * fdimAll;
+    d.halo.material.opacity = (on ? 0.9 : 0.45) * Math.max(fdimAll, fk);
   }
 
   for (const sh of shames) {
