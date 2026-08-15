@@ -1070,6 +1070,34 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (!ok) errs++;
 }
 
+// 사건이 사건으로 보이는가 — 시간선 위 표시가 어느 각도에서나 같은 동그라미여야 한다.
+// 예전에는 작은 토러스를 제멋대로 굴리고 있어서 볼 때마다 다른 타원이었고,
+// 굵기도 화면에서 1픽셀이 안 돼 「눌러 볼 자리」로 안 읽혔다.
+{
+  const api = globalThis.window.__rescene;
+  step(2);
+  const marked = api.branches.filter((b) => b.rings && b.rings.length);
+  const q = api.camera.quaternion;
+  const facing = marked.every((b) => {
+    const r = b.rings[0].mesh.quaternion;
+    return Math.abs(r.x - q.x) < 1e-6 && Math.abs(r.y - q.y) < 1e-6
+      && Math.abs(r.z - q.z) < 1e-6 && Math.abs(r.w - q.w) < 1e-6;
+  });
+  const sizes = [...new Set(marked.map((b) => b.rings[0].base))].sort((a, b) => a - b);
+  const bigEnough = sizes.length > 0 && sizes[0] >= 14;
+  // 재생 카메라(거리 976)에서 화면에 몇 픽셀로 보이는지
+  const halfH = 976 * Math.tan((api.camera.fov * Math.PI) / 360);
+  const dia = (sizes[0] * 2 / halfH) * 400;
+  // 보이는 동그라미가 곧 누르는 자리여야 한다
+  const hits = api.pickables.filter((h) => h.userData.eventIndex !== undefined);
+  const hitOk = hits.length > 0 && hits.every((h) => h.scale.x >= sizes[0]);
+  const ok = marked.length > 40 && facing && bigEnough && hitOk;
+  console.log(`   사건 표시: ${marked.length}개 · 크기 ${sizes.join('/')} (재생 화면에서 ${dia.toFixed(0)}px)`
+    + ` · 늘 같은 동그라미 ${facing ? '✅' : '❌ 제멋대로 기울어짐'}`
+    + ` · 눌리는 자리와 일치 ${hitOk ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
 // 재생에서 볼 시간선 고르기 — 기본은 본류 + 나의 연수아저씨
 {
   const api = globalThis.window.__rescene;

@@ -566,6 +566,9 @@ const STAR_TEX = makeRadialTexture(64, (r) => Math.exp(-r * r * 30) * 0.95 + Mat
 const STREAK_TEX = makeStreakTexture();
 const NODE_GEO = new THREE.IcosahedronGeometry(1, 3);
 const RING_GEO = new THREE.TorusGeometry(1, 0.045, 8, 64);
+/* 사건 자리에 세우는 표시 고리. 납작한 원환이라 카메라를 향해 세우면
+   어느 각도에서 봐도 같은 동그라미로 보인다 — 그래야 「표시」로 읽힌다. */
+const MARK_GEO = new THREE.RingGeometry(0.82, 1, 48);
 const HIT_GEO = new THREE.SphereGeometry(1, 12, 8);
 const SHOCK_GEO = new THREE.RingGeometry(0.94, 1, 96);
 
@@ -1955,18 +1958,22 @@ function buildBranch(ev, index) {
   node.position.copy(tip);
   grp.add(node);
 
+  /* 사건 표시.
+     예전에는 작은 토러스를 제멋대로 굴리고 있었다. 볼 때마다 기울기가 다른 타원이라
+     「사건 자리」가 아니라 떠다니는 장식으로 읽혔고, 굵기도 화면에서 1픽셀이 안 됐다.
+     이제 카메라를 향해 세운 동그라미 하나로 통일한다 — 52개가 전부 같은 모양이라
+     시간선 위에서 「여기가 눌러 볼 자리」가 한눈에 보인다. */
   const rings = [];
-  for (let k = 0; k < 1; k++) {
+  {
     const r = new THREE.Mesh(
-      RING_GEO,
-      new THREE.MeshBasicMaterial({ color: kGlow, transparent: true, opacity: k ? 0.4 : 0.45, blending: THREE.AdditiveBlending, depthWrite: false })
+      MARK_GEO,
+      new THREE.MeshBasicMaterial({ color: kGlow, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
     );
     r.position.copy(tip);
-    const b = nodeR * (k ? 3.4 : 2.4);
+    const b = ev.major ? 22 : 16;
     r.scale.setScalar(b);
-    r.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
     grp.add(r);
-    rings.push({ mesh: r, base: b, sx: (rng() - 0.5) * 0.5, sy: 0.25 + rng() * 0.5 });
+    rings.push({ mesh: r, base: b });
   }
 
   // 하이라이트 사건은 원 하나로 끝내지 않고, 밝은 코어 + 맥동하는 이중 링을 얹는다
@@ -2005,7 +2012,7 @@ function buildBranch(ev, index) {
 
   const hit = new THREE.Mesh(HIT_GEO, new THREE.MeshBasicMaterial({ visible: false }));
   hit.position.copy(tip);
-  hit.scale.setScalar(ev.major ? 12 : 10);
+  hit.scale.setScalar(ev.major ? 22 : 16);   // 보이는 동그라미가 곧 누르는 자리
   hit.userData.eventIndex = index;
   grp.add(hit);
   pickables.push(hit);
@@ -5638,10 +5645,10 @@ function tick() {
       b.jRing.material.opacity = 0.45 * dim;
     }
     for (const r of b.rings) {
-      r.mesh.rotation.x += dt * r.sx;
-      r.mesh.rotation.y += dt * r.sy;
-      r.mesh.scale.setScalar(r.base * boost * (1 + Math.sin(time * 1.9 + b.phase) * 0.05));
-      r.mesh.material.opacity = clamp((on ? 0.62 : hov ? 0.5 : 0.38) * dim, 0, 1);
+      r.mesh.quaternion.copy(camera.quaternion);
+      r.mesh.scale.setScalar(r.base * boost * (1 + Math.sin(time * 1.9 + b.phase) * 0.04));
+      // 짚으면 확실히 반응해야 「누를 수 있는 것」으로 읽힌다
+      r.mesh.material.opacity = clamp((on ? 1 : hov ? 0.85 : 0.55) * dim, 0, 1);
     }
     for (const l of b.leaders) {
       if (l.material.uniforms) l.material.uniforms.uFlicker.value = clamp((on ? 1.8 : hov ? 1.3 : 0.85) * dim, 0, 2.4);
@@ -6099,6 +6106,6 @@ const cuePick = {
   get count() { return PLAY_CUES.length; },
   get src() { return Object.fromEntries(Object.keys(CUE_SRC).map((k) => [k, CUE_SRC[k].length])); },
 };
-window.__rescene = { cuePick, declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, bgmStage: bgmStageApi, askGate, LOW_GPU, AA_SAMPLES, get glLost() { return glLost; }, focusPos, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
+window.__rescene = { cuePick, pickables, declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, bgmStage: bgmStageApi, askGate, LOW_GPU, AA_SAMPLES, get glLost() { return glLost; }, focusPos, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
 
 tick();
