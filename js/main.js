@@ -4032,6 +4032,7 @@ const play = {
   focus: -1,       // 지금 비추고 있는 분기 사건
   focusMv: -1,     // 지금 비추고 있는 MV
   focusDrive: -1,  // 지금 비추고 있는 「나의 연수아저씨」 회차
+  focusRadio: -1,  // 지금 비추고 있는 「메라디오」 회차
 };
 const HOLD_SEC = 7;          // 사건 하나를 보여주는 시간 (영상까지 훑을 여유를 준다)
 const FADE_SPAN = 110;       // 진행선이 지난 뒤 이 거리만큼에 걸쳐 서서히 나타난다
@@ -4539,31 +4540,59 @@ function applyReveal() {
  * 재생 중 순서대로 소개할 것들 — 분기 사건과 타이틀곡 MV 를 같은 자격으로 섞는다.
  * 파묘 사건은 뺀다 (데뷔 이전이라 이야기 흐름에 끼어든다).
  */
-const CUE_RANK = { event: 0, mv: 1, drive: 2 };
-const PLAY_CUES = [
-  ...EVENTS.map((ev, index) => {
-    const x = dateToX(ev.date);
-    return ev.kind !== 'dig' && x >= PLAY_FROM ? { type: 'event', index, ev, x, hold: HOLD_SEC } : null;
-  }),
-  ...MVS.map((mv, index) => {
-    const x = dateToX(mv.date);
-    // 선공개 「YoYo」는 데뷔 전이라 소개에서 뺀다 — 멤버 공개 다섯을 보고 나면
-    // 바로 데뷔 쇼케이스로 이어져야 하는데, 그 자리를 YoYo 가 가로채고 있었다.
-    // 시간선 위 스크린과 MV 갤러리에는 그대로 있다.
-    return x >= PLAY_FROM && !mv.noPlay ? { type: 'mv', index, mv, x, hold: HOLD_SEC * 0.72 } : null;
-  }),
-  /* 「나의 연수아저씨」 회차도 사건 사이사이에 같이 소개한다.
-   * 역주행의 절반이 이 시리즈에서 나왔는데, 시간선 아래에 점으로만 지나가면
-   * 재생을 끝까지 봐도 그런 게 있었는지조차 모른다.
-   * 사건보다는 짧게 물린다 — 22회가 통째로 들어와서 그만큼 길어지기 때문. */
-  ...DRIVE.episodes.map((ep, index) => {
+const CUE_RANK = { event: 0, mv: 1, drive: 2, radio: 3 };
+
+/* --- 재생에서 볼 시간선 ------------------------------------------------
+ * 본류(사건 · MV) · 나의 연수아저씨 · 메라디오 중에서 고른다.
+ * 기본은 **본류 + 나의 연수아저씨** — 역주행의 절반이 그 시리즈에서 나왔고,
+ * 시간선 아래로 점만 지나가면 재생을 끝까지 봐도 그런 게 있었는지 모른다.
+ * 메라디오까지 켜면 25회가 더 들어와 재생이 한참 길어지므로 기본은 꺼 둔다.
+ * ------------------------------------------------------------------ */
+const CUE_SRC = {
+  main: [
+    ...EVENTS.map((ev, index) => {
+      const x = dateToX(ev.date);
+      return ev.kind !== 'dig' && x >= PLAY_FROM ? { type: 'event', index, ev, x, hold: HOLD_SEC } : null;
+    }),
+    ...MVS.map((mv, index) => {
+      const x = dateToX(mv.date);
+      // 선공개 「YoYo」는 데뷔 전이라 소개에서 뺀다 — 멤버 공개 다섯을 보고 나면
+      // 바로 데뷔 쇼케이스로 이어져야 하는데, 그 자리를 YoYo 가 가로채고 있었다.
+      // 시간선 위 스크린과 MV 갤러리에는 그대로 있다.
+      return x >= PLAY_FROM && !mv.noPlay ? { type: 'mv', index, mv, x, hold: HOLD_SEC * 0.72 } : null;
+    }),
+  ].filter(Boolean),
+  // 회차물은 사건보다 짧게 물린다 — 수십 회가 통째로 들어와서 그만큼 길어지기 때문
+  drive: DRIVE.episodes.map((ep, index) => {
     const x = dateToX(ep.date);
     return x >= PLAY_FROM ? { type: 'drive', index, ep, x, hold: HOLD_SEC * 0.5 } : null;
-  }),
-]
-  .filter(Boolean)
-  // 같은 자리에 겹치면 사건 → MV → 연수아저씨 순
-  .sort((a, b) => a.x - b.x || CUE_RANK[a.type] - CUE_RANK[b.type]);
+  }).filter(Boolean),
+  radio: RADIO.episodes.map((ep, index) => {
+    const x = dateToX(ep.date);
+    return x >= PLAY_FROM ? { type: 'radio', index, ep, x, hold: HOLD_SEC * 0.5 } : null;
+  }).filter(Boolean),
+};
+
+const PICK_KEY = 'rescene.play.lines';
+const pick = { main: true, drive: true, radio: false };
+{
+  try {
+    const v = localStorage.getItem(PICK_KEY);
+    if (v) for (const k of Object.keys(pick)) pick[k] = v.split(',').includes(k);
+  } catch {}
+  // 하나도 안 남으면 재생할 게 없다 — 본류는 도로 켠다
+  if (!Object.values(pick).some(Boolean)) pick.main = true;
+}
+
+let PLAY_CUES = [];
+function rebuildCues() {
+  PLAY_CUES = Object.keys(CUE_SRC)
+    .filter((k) => pick[k])
+    .flatMap((k) => CUE_SRC[k])
+    // 같은 자리에 겹치면 사건 → MV → 연수아저씨 → 메라디오 순
+    .sort((a, b) => a.x - b.x || CUE_RANK[a.type] - CUE_RANK[b.type]);
+}
+rebuildCues();
 
 const cueEl = document.getElementById('play-cue');
 const cardEl = document.getElementById('play-card');
@@ -4665,21 +4694,27 @@ function showCue(cue) {
   play.focus = -1;
   play.focusMv = -1;
   play.focusDrive = -1;
+  play.focusRadio = -1;
 
-  if (cue.type === 'drive') {
-    const d = drives[cue.index];
-    cueEl.className = 'play-cue kind-drive';
-    cueEl.textContent = DRIVE.label;
-    cueEl.dataset.cue = `drive:${cue.ep.id}`;
-    cardEl.className = 'play-card kind-drive';
-    renderCuePhoto('woni');
-    cardKind.textContent = DRIVE.label;
+  if (cue.type === 'drive' || cue.type === 'radio') {
+    // 회차물 둘은 생김새가 같아서 한 갈래로 처리한다 (누가 끌고 가는지만 다르다)
+    const isDrive = cue.type === 'drive';
+    const show = isDrive ? DRIVE : RADIO;
+    const item = (isDrive ? drives : radios)[cue.index];
+    cueEl.className = `play-cue kind-${cue.type}`;
+    cueEl.textContent = show.label;
+    cueEl.dataset.cue = `${cue.type}:${cue.ep.id}`;
+    cardEl.className = `play-card kind-${cue.type}`;
+    renderCuePhoto(isDrive ? 'woni' : 'may');
+    cardKind.textContent = show.label;
     cardDate.textContent = formatDate(cue.ep.date);
     cardTitle.textContent = cue.ep.title;
-    cardMeta.textContent = `${cue.index + 1}화 · ${DRIVE.caption} · 조회수 ${formatViews(cue.ep.views)}`;
+    cardMeta.textContent =
+      `${cue.index + 1}${isDrive ? '화' : '번째 방송'} · ${show.caption} · 조회수 ${formatViews(cue.ep.views)}`;
     renderCueVideos([{ id: cue.ep.id, t: cue.ep.title, hi: true }]);
-    play.focusDrive = cue.index;
-    if (d) focusPos.copy(d.pos);
+    if (isDrive) play.focusDrive = cue.index;
+    else play.focusRadio = cue.index;
+    if (item) focusPos.copy(item.pos);
   } else if (cue.type === 'mv') {
     const mv = cue.mv;
     // MV 는 스크린 자체가 바로 옆에 있으므로 3D 칩을 따로 띄우지 않는다
@@ -4817,6 +4852,7 @@ function startPlay() {
   play.focus = -1;
   play.focusMv = -1;
   play.focusDrive = -1;
+  play.focusRadio = -1;
   play.speed = 1;
   if (playSpeedBtn) playSpeedBtn.textContent = '1×';
   document.body.classList.add('is-playing');
@@ -4839,6 +4875,7 @@ function stopPlay(complete = false) {
   play.focus = -1;
   play.focusMv = -1;
   play.focusDrive = -1;
+  play.focusRadio = -1;
   play.pendingCue = null;
   bang.on = false;
   bangGroup.visible = false;
@@ -5264,6 +5301,42 @@ if (bgmBtn) {
     if (!bgmMuted && bgmChoice === false && play.active) { bgmChoice = true; waitDone = true; bgmStart(); }
   });
 }
+/* 재생에서 볼 시간선 고르기 — 켜고 끌 때마다 소개 목록을 다시 세운다.
+   재생 도중에 눌러도 되게, 지금 서 있는 자리 기준으로 다음 차례를 다시 잡는다. */
+function syncPickCues() {
+  rebuildCues();
+  if (!play.active) { play.next = 0; play.lastCueX = PLAY_FROM; return; }
+  let n = 0;
+  while (n < PLAY_CUES.length && PLAY_CUES[n].x <= play.front) n++;
+  play.next = n;
+  play.lastCueX = n > 0 ? PLAY_CUES[n - 1].x : PLAY_FROM;
+}
+const PICK_BTN = {};
+function paintPick() {
+  for (const k of Object.keys(pick)) {
+    const el = PICK_BTN[k];
+    if (!el) continue;
+    el.classList.toggle('is-on', pick[k]);
+    el.setAttribute('aria-pressed', pick[k] ? 'true' : 'false');
+  }
+}
+for (const k of Object.keys(pick)) {
+  const el = document.getElementById(`pick-${k}`);
+  if (!el) continue;
+  PICK_BTN[k] = el;
+  el.addEventListener('pointerdown', (e) => e.stopPropagation());
+  el.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // 마지막 하나까지 끄면 재생할 게 없어진다 — 그건 막는다
+    if (pick[k] && Object.values(pick).filter(Boolean).length === 1) return;
+    pick[k] = !pick[k];
+    try { localStorage.setItem(PICK_KEY, Object.keys(pick).filter((n) => pick[n]).join(',')); } catch {}
+    paintPick();
+    syncPickCues();
+  });
+}
+paintPick();
+
 if (playSpeedBtn) {
   playSpeedBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -5511,7 +5584,7 @@ function tick() {
 
   // 재생 중 "지금 이 사건" 세기 — 들어올 때/나갈 때 부드럽게
   const focusK =
-    play.active && play.hold > 0 && (play.focus >= 0 || play.focusMv >= 0 || play.focusDrive >= 0)
+    play.active && play.hold > 0 && (play.focus >= 0 || play.focusMv >= 0 || play.focusDrive >= 0 || play.focusRadio >= 0)
       ? clamp(Math.min(play.holdMax - play.hold, play.hold) / 0.45, 0, 1)
       : 0;
   const fdimAll = 1 - focusK * 0.7;   // 사건을 비추는 동안 나머지는 물린다
@@ -5595,12 +5668,14 @@ function tick() {
   }
 
   for (const r of radios) {
-    const on = r.i === selectedRadio;
+    const fk = play.focusRadio === r.i ? focusK : 0;
+    const on = r.i === selectedRadio || fk > 0.35;
+    setLod(r.el, 'is-focus', fk > 0.35);
     const pl = 1 + Math.sin(time * 2.6 + r.phase) * 0.12;
     r.node.scale.setScalar(r.nr * pl * (on ? 1.7 : 1));
     r.node.rotation.y += dt * 0.5;
     r.halo.scale.setScalar(r.hr * pl * (on ? 2.1 : 1));
-    r.halo.material.opacity = (on ? 0.9 : 0.45) * fdimAll;
+    r.halo.material.opacity = (on ? 0.9 : 0.45) * Math.max(fdimAll, fk);
   }
 
   for (const d of drives) {
@@ -6003,6 +6078,13 @@ const askGate = {
   // 검사기가 「소리 없이」 길도 재 볼 수 있게 열어 둔다
   reset: () => { bgmChoice = null; waitDone = false; },
 };
-window.__rescene = { declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, bgmStage: bgmStageApi, askGate, LOW_GPU, AA_SAMPLES, get glLost() { return glLost; }, focusPos, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
+/** 재생에서 볼 시간선 고르기 */
+const cuePick = {
+  el: PICK_BTN,
+  get on() { return { ...pick }; },
+  get count() { return PLAY_CUES.length; },
+  get src() { return Object.fromEntries(Object.keys(CUE_SRC).map((k) => [k, CUE_SRC[k].length])); },
+};
+window.__rescene = { cuePick, declutter, branches, mvScreens, arcThreads, radios, drives, shames, staffs, sideLines, bgm, bgmMode, bgmStage: bgmStageApi, askGate, LOW_GPU, AA_SAMPLES, get glLost() { return glLost; }, focusPos, MV_BY_X, play, futureFan, revealables, gasBlobs, headAnchor, headDate, camera, controls, THREE };
 
 tick();

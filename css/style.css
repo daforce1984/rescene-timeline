@@ -2744,6 +2744,32 @@ body.is-playing .play-strip { pointer-events: auto; }
   transition: background 0.18s, box-shadow 0.18s, color 0.18s;
 }
 .play-mode:hover { background: rgba(255, 150, 55, 0.3); box-shadow: 0 0 14px rgba(255, 170, 60, 0.5); }
+
+/* --- 재생에서 볼 시간선 고르기 --------------------------------------
+   본류 · 나의 연수아저씨 · 메라디오. 끈 것은 테두리만 남겨 「지금은 안 본다」로 읽히게. */
+.play-pick { display: flex; align-items: center; gap: 4px; }
+.play-chip {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  padding: 4px 8px;
+  min-height: 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 175, 80, 0.28);
+  background: transparent;
+  color: rgba(255, 200, 155, 0.42);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s;
+}
+.play-chip:hover { color: rgba(255, 226, 190, 0.85); border-color: rgba(255, 190, 110, 0.6); }
+.play-chip.is-on {
+  border-color: rgba(255, 190, 110, 0.75);
+  background: rgba(255, 150, 50, 0.24);
+  color: rgba(255, 244, 224, 0.98);
+}
+.play-chip.is-on:hover { background: rgba(255, 160, 60, 0.36); box-shadow: 0 0 14px rgba(255, 170, 60, 0.5); }
+
 .play-mode.is-one {
   border-color: rgba(255, 200, 120, 0.8);
   background: rgba(255, 150, 50, 0.28);
@@ -3049,6 +3075,9 @@ body.is-playing .play-strip { pointer-events: auto; }
 
   .play-hud { gap: 8px; padding: 6px 10px; }
   .play-track { width: 84px; }
+  /* 「TIMELINE 재생 중」 글자를 접어 시간선 고르는 칩 자리를 낸다 */
+  .play-cap { display: none; }
+  .play-chip { font-size: 8.5px; padding: 4px 7px; }
 
   /* 패널은 노치 밑으로 안 깔리게 */
   .panel { bottom: calc(108px + env(safe-area-inset-bottom)); }

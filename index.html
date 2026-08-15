@@ -116,6 +116,7 @@
         <li><kbd>연도 이름표</kbd> 클릭 — 그 구간 첫머리로 이동</li>
         <li><kbd>▶ 재생</kbd> / <kbd>Space</kbd> — 데뷔부터 자라나는 연출</li>
         <li>재생 중 <kbd>클릭</kbd> 다음으로 · <kbd>←</kbd> <kbd>→</kbd> 사건 건너뛰기</li>
+        <li>재생 중 <kbd>본류</kbd> <kbd>연수아저씨</kbd> <kbd>메라디오</kbd> — 어떤 시간선을 볼지</li>
         <li><kbd>파묘</kbd> <kbd>연습생</kbd> <kbd>2024</kbd> <kbd>2025</kbd> <kbd>2026</kbd> — 구간 이동</li>
         <li><kbd>C</kbd> — 이 안내 접기 · <kbd>B</kbd> — 범례 접기</li>
         <li><kbd>←</kbd> <kbd>→</kbd> 사건 이동 · <kbd>Esc</kbd> 닫기 · <kbd>0</kbd> 초기화</li>
@@ -171,6 +172,12 @@
       <button id="play-mute" type="button" class="play-mute" aria-label="배경음 켜기/끄기">🔊</button>
       <button id="bgm-mode" class="play-mode" type="button" aria-pressed="false">시간선</button>
       <button id="play-speed" type="button" class="play-speed" aria-label="재생 속도">1×</button>
+      <!-- 재생에서 어떤 시간선을 볼지. 기본은 본류 + 나의 연수아저씨 -->
+      <span class="play-pick" role="group" aria-label="재생에서 볼 시간선">
+        <button id="pick-main" class="play-chip" type="button">본류</button>
+        <button id="pick-drive" class="play-chip" type="button">연수아저씨</button>
+        <button id="pick-radio" class="play-chip" type="button">메라디오</button>
+      </span>
       <span class="play-hint"><kbd>클릭</kbd> 다음으로 · <kbd>Space</kbd> 중단</span>
     </div>
 

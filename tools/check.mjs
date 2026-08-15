@@ -1057,6 +1057,31 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   if (!ok) errs++;
 }
 
+// 재생에서 볼 시간선 고르기 — 기본은 본류 + 나의 연수아저씨
+{
+  const api = globalThis.window.__rescene;
+  const pk = api.cuePick;
+  const src = pk.src;
+  const base = { ...pk.on };
+  const defOk = base.main === true && base.drive === true && base.radio === false;
+  const n0 = pk.count;
+  const sumOk = n0 === src.main + src.drive;
+  clickOn('pick-radio');                       // 메라디오 켜기
+  const withRadio = pk.count === n0 + src.radio && pk.on.radio === true;
+  clickOn('pick-drive');                       // 연수아저씨 끄기
+  const noDrive = pk.count === n0 + src.radio - src.drive && pk.on.drive === false;
+  clickOn('pick-radio');
+  clickOn('pick-main');                        // 마지막 하나까지 끄려 하면 막힌다
+  const kept = pk.count > 0 && Object.values(pk.on).some(Boolean);
+  clickOn('pick-drive');                       // 원래대로
+  const backOk = pk.count === n0;
+  const ok = defOk && sumOk && withRadio && noDrive && kept && backOk;
+  console.log(`   볼 시간선 고르기: 본류 ${src.main} · 연수아저씨 ${src.drive} · 메라디오 ${src.radio}`
+    + ` · 기본 ${defOk ? '✅ 본류+연수아저씨' : '❌'} · 켜면 늘고 ${withRadio ? '✅' : '❌'} 끄면 줄고 ${noDrive ? '✅' : '❌'}`
+    + ` · 전부 끄기 막힘 ${kept ? '✅' : '❌'} · 되돌림 ${backOk ? '✅' : '❌'} ${ok ? '✅' : '❌'}`);
+  if (!ok) errs++;
+}
+
 // 회차 목록 — 메라디오 · 나의 연수아저씨.
 // 시간선 위에 점으로 흩어져 있는 회차를 한자리에 모아 놓은 목록이다.
 {
