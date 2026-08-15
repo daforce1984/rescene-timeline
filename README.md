@@ -68,8 +68,13 @@ tools/check.mjs  브라우저 없이 돌리는 검사기
 코드를 고쳤으면 이걸 먼저 돌릴 것:
 
 ```bash
-node tools/check.mjs
+node tools/stamp.mjs   # 캐시 깨기 도장
+node tools/check.mjs   # 검사기 (도장이 낡았으면 여기서 걸린다)
 ```
+
+GitHub Pages 는 css · js 에 `max-age=600` 을 붙인다. 고쳐 올려도 10분 동안은
+브라우저가 옛 파일을 쓰므로, 파일 내용에서 딴 해시를 주소 뒤에 붙여 둔다
+(`style.css?v=…`). 내용이 바뀌면 주소가 바뀌니 캐시가 알아서 비켜난다.
 
 실제 three.js 로 씬을 다 만들고, 라벨과 버튼을 전부 눌러 보고,
 재생을 끝까지 돌린 뒤 결과를 숫자로 찍어 준다.

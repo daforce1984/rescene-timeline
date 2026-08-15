@@ -36,6 +36,16 @@ for (const f of ['data.js', 'main.js']) {
   fs.writeFileSync(path.join(HERE, '.tmp', f), src);
 }
 
+// 캐시 깨기 도장이 최신인지 먼저 본다.
+// GitHub Pages 가 css · js 에 max-age=600 을 붙여서, 도장이 낡으면 고친 게 10분 동안 안 보인다.
+{
+  const { stamp } = await import('./stamp.mjs');
+  const r = stamp(true);
+  console.log(`   캐시 도장: css ${r.v.css} · main ${r.v.main} · data ${r.v.data}`
+    + ` ${r.stale.length ? `❌ 낡음 (${r.stale.join(', ')}) — node tools/stamp.mjs` : '✅ 최신'}`);
+  if (r.stale.length) { console.error('\n❌ 도장부터 찍고 다시 돌릴 것'); process.exit(1); }
+}
+
 let failed = false;
 process.on('uncaughtException', (e) => { console.error('❌ 런타임 오류:', e.stack); process.exit(1); });
 process.on('unhandledRejection', (e) => { console.error('❌ 미처리 거부:', e); process.exit(1); });
