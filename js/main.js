@@ -20,7 +20,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-import { EVENTS, KINDS, TIME, ERAS, PAST, PERIODS, RADIO, MVS, CHANNEL, BGM, DRIVE, STAFF, MEMBERS, SHAME, AD, BUY, GAS, GAS_CUT, HOME_CAM, GROUP } from './data.js?v=92ba1c93';
+import { EVENTS, KINDS, TIME, ERAS, PAST, PERIODS, RADIO, MVS, CHANNEL, BGM, DRIVE, STAFF, MEMBERS, SHAME, AD, BUY, GAS, GAS_CUT, HOME_CAM, GROUP } from './data.js?v=8cce7035';
 
 /* ==================================================================
  * 0. 유틸
