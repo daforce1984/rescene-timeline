@@ -3162,26 +3162,29 @@ body.is-playing .play-strip { pointer-events: auto; }
   .mvg-item {
     flex-direction: row;
     align-items: center;
-    gap: 10px;
-    padding: 6px;
+    gap: 11px;
+    padding: 8px;
     border-radius: 8px;
+    /* 한 줄이 손가락으로 눌러도 될 만큼은 돼야 한다.
+       썸네일(124×70) + 위아래 여백이라 실제로는 이보다 조금 더 두껍다. */
+    min-height: 86px;
   }
   /* 손가락 화면에서는 뜨는 효과가 의미 없다 (누르면 이미 열린다) */
   .mvg-item:hover { transform: none; }
-  .mvg-thumb { flex: 0 0 104px; width: 104px; border-radius: 5px; }
-  .mvg-thumb em { font-size: 15px; }
-  .mvg-text { flex: 1 1 auto; min-width: 0; gap: 3px; padding: 0; }
+  .mvg-thumb { flex: 0 0 124px; width: 124px; border-radius: 5px; }
+  .mvg-thumb em { font-size: 17px; }
+  .mvg-text { flex: 1 1 auto; min-width: 0; gap: 4px; padding: 0; }
   /* 제목은 두 줄까지만 — 그 아래 날짜·조회수 줄이 밀려 나면 안 된다 */
   .mvg-text b {
-    font-size: 12.5px;
-    line-height: 1.35;
+    font-size: 13px;
+    line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .mvg-text i { font-size: 10px; }
-  .mvg-text u { font-size: 9px; }
+  .mvg-text i { font-size: 10.5px; }
+  .mvg-text u { font-size: 9.5px; }
   .mvg-text s {
     margin-top: 3px;
     font-size: 9.5px;

@@ -1170,13 +1170,16 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   const listCol = nar640 ? /\.mvgal-list \{[^}]*flex-direction:\s*column/.test(nar640[0]) : false;
   const itemRow = nar640 ? /\.mvg-item \{[^}]*flex-direction:\s*row/.test(nar640[0]) : false;
   const clamp2 = nar640 ? /-webkit-line-clamp:\s*2/.test(nar640[0]) : false;
+  // 한 줄이 손가락으로 눌러도 될 만큼은 돼야 한다
+  const rowH = nar640 ? /\.mvg-item \{[^}]*min-height:\s*(\d+)px/.exec(nar640[0]) : null;
+  const tall = !!rowH && +rowH[1] >= 72;
   const scrolls = nar640 ? /min-height:\s*0/.test(nar640[0]) : false;
   // 닫기 단추 — id 하나만 잡아 두면 나머지 둘이 맨 버튼으로 나온다
   const closeAll = /\.mvgal-inner header > button \{/.test(CSS);
-  const mobileOk = listCol && itemRow && clamp2 && scrolls && closeAll;
+  const mobileOk = listCol && itemRow && clamp2 && scrolls && closeAll && tall;
   if (!mobileOk) ok = false;
   lines.push(`좁은 화면 목록 ${listCol && itemRow ? '✅ 한 줄씩' : '❌ 격자 그대로'}`
-    + ` · 제목 두 줄까지 ${clamp2 ? '✅' : '❌'} · 스스로 구름 ${scrolls ? '✅' : '❌'}`
+    + ` · 제목 두 줄까지 ${clamp2 ? '✅' : '❌'} · 한 줄 키 ${rowH ? rowH[1] + 'px' : '?'} ${tall ? '✅' : '❌'} · 스스로 구름 ${scrolls ? '✅' : '❌'}`
     + ` · 닫기 단추 셋 다 ${closeAll ? '✅' : '❌'}`);
 
   // 다른 목록을 누르면 앞의 것은 닫힌다 (겹쳐 뜨면 안 된다)
