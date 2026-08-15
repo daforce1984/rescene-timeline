@@ -275,7 +275,11 @@ try {
         probeCam.updateMatrixWorld(true);
         const p = api.focusPos.clone().project(probeCam);
         const d = Math.hypot(p.x, p.y);
-        cueCenter.set(key, Math.min(cueCenter.has(key) ? cueCenter.get(key) : 9, d));
+        const was = cueCenter.get(key);
+        if (!was || d < was.d) cueCenter.set(key, { d, y: was ? was.y : p.y });
+        // 세로 자리는 소개가 한창일 때만 잰다 — 들어오는 중·나가는 중에는
+        // 카메라가 본류와 사건 사이 어딘가라 값이 흐른다
+        if (api.play.holdMax - api.play.hold > 2 && api.play.hold > 2) cueCenter.get(key).y = p.y;
       }
     }
     // 구르는 동안엔 옛 숫자와 새 숫자가 잠깐 겹쳐 있다. 들어오는 쪽만 읽는다.
@@ -293,12 +297,19 @@ const lastDateShown = byIdEl('play-date').textContent;
 console.log(`   소개된 사건 ${shown}개 · 총 ${(frames0 * 0.05).toFixed(0)}초 · 마지막 날짜 ${lastDateShown}`);
 // 소개하는 동안 사건이 화면 한가운데로 오는가 (0 = 정중앙, 1 = 화면 가장자리)
 {
-  const ds = [...cueCenter.values()].sort((a, b) => a - b);
+  const all = [...cueCenter.values()];
+  const ds = all.map((v) => v.d).sort((a, b) => a - b);
+  const ys = all.map((v) => v.y).sort((a, b) => a - b);
   const mid = ds.length ? ds[Math.floor(ds.length / 2)] : 9;
   const worst = ds.length ? ds[ds.length - 1] : 9;
+  const midY = ys.length ? ys[Math.floor(ys.length / 2)] : 0;
   const off = ds.filter((d) => d > 0.5).length;    // 반쯤 밀려난 사건
-  const ok = ds.length >= 20 && mid < 0.3 && off === 0;
-  console.log(`   사건 화면 중앙: ${ds.length}건 · 중앙값 ${mid.toFixed(2)} · 가장 먼 것 ${worst.toFixed(2)}`
+  // 사건은 화면 한가운데에서 **조금 아래**여야 한다 — 위쪽은 이름표 자리다
+  const aboveN = ys.filter((y) => y >= 0).length;   // 중앙보다 위에 선 사건
+  const below = midY < -0.04 && midY > -0.3 && aboveN === 0;
+  const ok = ds.length >= 20 && mid < 0.3 && off === 0 && below;
+  console.log(`   사건 화면 중앙: ${ds.length}건 · 중앙에서 ${mid.toFixed(2)} · 가장 먼 것 ${worst.toFixed(2)}`
+    + ` · 세로 ${midY.toFixed(2)} (위로 넘어간 사건 ${aboveN}개, 최고 ${ys[ys.length - 1].toFixed(2)}) ${below ? '✅ 한가운데 조금 아래' : '❌'}`
     + ` · 절반 넘게 밀린 사건 ${off}개 ${ok ? '✅' : '❌'}`);
   if (!ok) errs++;
 }
@@ -1093,7 +1104,8 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   clickOn('btn-play');
   step(8);
   let last = null, back = 0, backOne = 0, lead = 0, n = 0, headSeen2 = 0;
-  let soloSeen = 0, soloPush = 0, soloOthers = 0;
+  let soloSeen = 0, soloOthers = 0;
+  const soloAt = new Set();          // 남는 이름표가 선 자리 (같아야 「표준화」다)
   for (let k = 0; k < 1200 && api.play.active; k++) {
     step(1);
     // 첫 150프레임은 전체 보기에서 재생 자리로 날아오는 구간이라 뺀다
@@ -1103,13 +1115,21 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
     if (api.headAnchor.visible) headSeen2++;
     // 그리고 3D 위에는 지금 비추는 것 하나만 남는다 — 그 하나는 밀려나지 않아야
     // 사건마다 같은 자리에 선다(밀어내기에서 빼지 않으면 안 보이는 것들이 계속 민다)
-    for (const d of api.declutter) {
-      const c = d.el && d.el.classList;
-      if (!c || !c.contains) continue;
-      const on = c.contains('is-focus') || c.contains('is-hot');
-      const push = d.cur ? Math.hypot(d.cur.x, d.cur.y) : 0;
-      if (on) { soloSeen++; soloPush = Math.max(soloPush, push); }
-      else if (push > 1) soloOthers++;
+    // 자리가 다 잡힌 뒤(소개가 무르익은 뒤)에만 잰다 — 그 전에는 직전 이름표가
+    // 제자리로 돌아오는 중이라 값이 흐른다
+    const settled = api.play.hold > 0 && api.play.holdMax - api.play.hold > 2;
+    if (settled) {
+      const movable = api.declutter.filter((d) => !d.fixed && d.el && d.el.classList && d.el.classList.contains);
+      const now = movable.find((d) => d.el.classList.contains('is-focus'));
+      // 지금 비추는 이름표가 아직 안 정해진 프레임(빅뱅이 잦아들기를 기다리는 중)은 건너뛴다
+      if (now) {
+        soloSeen++;
+        soloAt.add(`${Math.round(now.cur.x)},${Math.round(now.cur.y)}`);
+        for (const d of movable) {
+          if (d === now) continue;
+          if (d.cur && Math.hypot(d.cur.x, d.cur.y) > 1) soloOthers++;
+        }
+      }
     }
     const tx = api.controls.target.x;
     if (last !== null) { const d = tx - last; if (d < 0) { back += -d; backOne = Math.max(backOne, -d); } }
@@ -1123,13 +1143,18 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   resize();
   const leadPct = lead / halfW;
   // 남기는 건 지금 사건 · 지금 MV · 안내 칩뿐 (CSS 로 감춘다)
-  const soloCss = /body\.is-playing #labels > \*:not\(\.is-focus\):not\(\.is-hot\):not\(\.play-cue\)/.test(CSS);
-  const soloOk = soloSeen > 0 && soloPush < 1 && soloOthers === 0 && soloCss;
+  const soloCss = /body\.is-playing #labels > \*:not\(\.is-focus\):not\(\.is-hot\)\s*\{/.test(CSS);
+  // 이름표는 늘 같은 자리 하나 — 가로는 사건에 맞춰 가운데(0), 세로는 사건 위(음수)
+  const spots = [...soloAt];
+  const one = spots.length === 1;
+  const above = one && (() => { const [x, y] = spots[0].split(',').map(Number); return x === 0 && y <= -30; })();
+  const soloOk = soloSeen > 0 && soloOthers === 0 && soloCss && one && above;
   const ok = n > 400 && leadPct < 0.25 && back < 60 && backOne < halfW * 0.1 && headSeen2 === 0 && soloOk;
   console.log(`   세로 화면 카메라: ${n}프레임 · 앞서 보는 폭 ${lead.toFixed(0)} / 화면 반폭 ${halfW.toFixed(0)}`
     + ` = ${(leadPct * 100).toFixed(0)}% · 뒤로 물러남 총 ${back.toFixed(0)} · 한 번에 최대 ${backOne.toFixed(1)}`
     + ` · 시간선 위 날짜 ${headSeen2 === 0 ? '✅ 안 뜸' : `❌ ${headSeen2}프레임`}`
-    + ` · 이름표는 지금 것 하나만 ${soloCss ? '✅' : '❌'} · 그 하나가 밀린 거리 ${soloPush.toFixed(1)}`
+    + ` · 이름표는 지금 것 하나만 ${soloCss ? '✅' : '❌'}`
+    + ` · 선 자리 ${spots.length}가지 [${spots.join(' ')}] ${one && above ? '✅ 늘 사건 위 가운데' : '❌'}`
     + `${soloOthers ? ` · ❌ 나머지 ${soloOthers}번 밀림` : ''} ${ok ? '✅' : '❌'}`);
   if (!ok) errs++;
 }

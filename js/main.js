@@ -4012,6 +4012,8 @@ const playPos = new THREE.Vector3();
  */
 const PLAY_OFF = new THREE.Vector3(-120, 235, 940);
 const PLAY_DIST = PLAY_OFF.length();
+/** 소개할 때 사건을 화면 한가운데에서 얼마나 내려놓는가 (화면 반높이 대비) */
+const CUE_DROP = 0.13;
 
 /* ==================================================================
  * 재생 연출 — 데뷔 지점에서 출발해 시간선이 자라나며 사건이 하나씩 켜진다.
@@ -5318,6 +5320,8 @@ function updateDeclutter(dt) {
   const solo = narrowUI && play.active;
 
   const live = [];
+  // 사건 점과 이름표 아랫변 사이 (사건 위 발광까지 비켜 준다)
+  const SOLO_GAP = 34;
   for (const d of declutter) {
     if (measure || d.w === undefined) {
       d.w = d.el.offsetWidth || 150;
@@ -5377,7 +5381,13 @@ function updateDeclutter(dt) {
   const k = 1 - Math.pow(0.0015, dt);   // 부드럽게 따라간다
   for (const d of declutter) {
     if (d.fixed) { d.px = undefined; continue; }
-    if (d.px !== undefined && live.includes(d)) {
+    if (solo) {
+      // 남는 이름표 하나는 **사건 바로 위**에, 가로는 사건에 맞춰 가운데로 세운다.
+      // CSS2D 는 이름표를 붙인 점 한가운데에 놓으므로, 그냥 두면 사건을 덮는다.
+      d.tgt.x = 0;
+      d.tgt.y = live.includes(d) ? -(d.h * 0.5 + SOLO_GAP) : 0;
+      d.px = undefined;
+    } else if (d.px !== undefined && live.includes(d)) {
       d.tgt.x = clamp(d.px - d.sx, -120, 120);
       d.tgt.y = clamp(d.py - d.sy, -190, 190);
       d.px = undefined;
@@ -5743,9 +5753,11 @@ function tick() {
       playTgt.set(aimX, aimY, 0);
       if (focusK > 0.001) {
         playTgt.lerp(focusPos, focusK);
-        // 정가운데에 딱 놓으면 사건 위에 붙는 이름표와 안내 칩이 잘린다.
-        // 화면 높이의 한 자락만큼 올려 두면 사건·이름표가 한 덩어리로 가운데 온다.
-        playTgt.y += focusK * 62;
+        // 사건은 **화면 한가운데에서 조금 아래**에 놓는다. 위쪽은 이름표 자리로 비우고,
+        // 더 내리면 아래 소개 패널에 닿는다. 카메라 목표를 그만큼 올리면 사건이 내려간다.
+        // world 값으로 못 박지 않고 화면 반높이의 비율로 잡는다 (화각이 바뀌어도 같은 자리).
+        const halfH = PLAY_DIST * Math.tan((camera.fov * Math.PI) / 360);
+        playTgt.y += focusK * halfH * CUE_DROP;
       }
       playPos.copy(playTgt).add(PLAY_OFF);
       // 빅뱅 순간엔 카메라가 잠깐 흔들린다
