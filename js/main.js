@@ -5312,6 +5312,11 @@ function updateDeclutter(dt) {
   const measure = dcMeasure <= 0;
   if (measure) dcMeasure = 0.4;
 
+  /* 좁은 화면 재생 중에는 3D 위에 **지금 비추는 것 하나만** 남긴다 (아래 CSS 가 나머지를 감춘다).
+     감춘 것들을 밀어내기 계산에 그대로 두면, 안 보이는 이름표들이 보이는 하나를 계속 밀어서
+     같은 사건이라도 자리가 매번 달라진다 — 그게 「위치가 제각각」으로 보이던 것이다. */
+  const solo = narrowUI && play.active;
+
   const live = [];
   for (const d of declutter) {
     if (measure || d.w === undefined) {
@@ -5327,6 +5332,7 @@ function updateDeclutter(dt) {
       d.el.style.display !== 'none' &&
       !cls.contains('is-minor') &&
       !cls.contains('is-far') &&
+      (!solo || cls.contains('is-focus') || cls.contains('is-hot')) &&
       d.w > 0;
     if (!visible) { d.tgt.x = 0; d.tgt.y = 0; continue; }
 

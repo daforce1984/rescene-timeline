@@ -1093,6 +1093,7 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   clickOn('btn-play');
   step(8);
   let last = null, back = 0, backOne = 0, lead = 0, n = 0, headSeen2 = 0;
+  let soloSeen = 0, soloPush = 0, soloOthers = 0;
   for (let k = 0; k < 1200 && api.play.active; k++) {
     step(1);
     // 첫 150프레임은 전체 보기에서 재생 자리로 날아오는 구간이라 뺀다
@@ -1100,6 +1101,16 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
     n++;
     // 좁은 화면에서는 시간선 위 날짜 이름표를 띄우지 않는다 (아래 큰 시계와 겹친다)
     if (api.headAnchor.visible) headSeen2++;
+    // 그리고 3D 위에는 지금 비추는 것 하나만 남는다 — 그 하나는 밀려나지 않아야
+    // 사건마다 같은 자리에 선다(밀어내기에서 빼지 않으면 안 보이는 것들이 계속 민다)
+    for (const d of api.declutter) {
+      const c = d.el && d.el.classList;
+      if (!c || !c.contains) continue;
+      const on = c.contains('is-focus') || c.contains('is-hot');
+      const push = d.cur ? Math.hypot(d.cur.x, d.cur.y) : 0;
+      if (on) { soloSeen++; soloPush = Math.max(soloPush, push); }
+      else if (push > 1) soloOthers++;
+    }
     const tx = api.controls.target.x;
     if (last !== null) { const d = tx - last; if (d < 0) { back += -d; backOne = Math.max(backOne, -d); } }
     last = tx;
@@ -1111,10 +1122,15 @@ try { step(20); } catch (e) { errs++; console.log(`   ❌ 정지 후: ${e.messag
   globalThis.window.innerHeight = H0;
   resize();
   const leadPct = lead / halfW;
-  const ok = n > 400 && leadPct < 0.25 && back < 60 && backOne < halfW * 0.1 && headSeen2 === 0;
+  // 남기는 건 지금 사건 · 지금 MV · 안내 칩뿐 (CSS 로 감춘다)
+  const soloCss = /body\.is-playing #labels > \*:not\(\.is-focus\):not\(\.is-hot\):not\(\.play-cue\)/.test(CSS);
+  const soloOk = soloSeen > 0 && soloPush < 1 && soloOthers === 0 && soloCss;
+  const ok = n > 400 && leadPct < 0.25 && back < 60 && backOne < halfW * 0.1 && headSeen2 === 0 && soloOk;
   console.log(`   세로 화면 카메라: ${n}프레임 · 앞서 보는 폭 ${lead.toFixed(0)} / 화면 반폭 ${halfW.toFixed(0)}`
     + ` = ${(leadPct * 100).toFixed(0)}% · 뒤로 물러남 총 ${back.toFixed(0)} · 한 번에 최대 ${backOne.toFixed(1)}`
-    + ` · 시간선 위 날짜 ${headSeen2 === 0 ? '✅ 안 뜸' : `❌ ${headSeen2}프레임`} ${ok ? '✅' : '❌'}`);
+    + ` · 시간선 위 날짜 ${headSeen2 === 0 ? '✅ 안 뜸' : `❌ ${headSeen2}프레임`}`
+    + ` · 이름표는 지금 것 하나만 ${soloCss ? '✅' : '❌'} · 그 하나가 밀린 거리 ${soloPush.toFixed(1)}`
+    + `${soloOthers ? ` · ❌ 나머지 ${soloOthers}번 밀림` : ''} ${ok ? '✅' : '❌'}`);
   if (!ok) errs++;
 }
 
